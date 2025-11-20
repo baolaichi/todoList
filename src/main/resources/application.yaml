@@ -1,0 +1,23 @@
+server:
+  port: 8080 # Server Port
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/productDBCV?useSSL=false&serverTimezone=UTC
+    username: root
+    password: '@Acctonvn12345' # THAY THẾ bằng mật khẩu MySQL thực của bạn
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  jpa:
+    hibernate:
+      # 'update' sẽ tạo bảng nếu chưa có, KHÔNG NÊN DÙNG TRONG PRODUCTION
+      ddl-auto: update 
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true # Định dạng SQL cho dễ đọc (tùy chọn)
+
+# CORS Configuration (RẤT QUAN TRỌNG CHO FE)
+# Cấu hình biến custom cho CORS, sau đó dùng trong @CrossOrigin
+inventory:
+  cors:
+    allowed-origins: http://localhost:5173,http://localhost:3000
