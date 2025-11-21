@@ -1,5 +1,7 @@
 package com.example.inventory.model;
 
+import com.example.inventory.model.entityEnum.Priority;
+import com.example.inventory.model.entityEnum.Status;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -20,17 +22,14 @@ public class Task {
     private LocalDateTime updatedAt;
 
     @ManyToOne
-    private Users user_id;
+    @JoinColumn(name = "user_id", nullable = false)
+    private Users user; // <-- Sửa thành 'user
 
-    private enum status{
-        TODO,
-        IN_PROGRESS,
-        DONE
-    }
+    @Enumerated(EnumType.STRING)
+    private Status status;
+    @Enumerated(EnumType.STRING)
+    private Priority priority;
 
-    private enum priority{
-        LOW,
-        MEDIUM,
-        HIGH
-    }
+
+
 }

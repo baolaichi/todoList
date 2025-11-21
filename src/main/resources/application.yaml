@@ -3,7 +3,7 @@ server:
 
 spring:
   datasource:
-    url: jdbc:mysql://localhost:3306/productDBCV?useSSL=false&serverTimezone=UTC
+    url: jdbc:mysql://localhost:3306/todolist?useSSL=false&serverTimezone=UTC
     username: root
     password: '@Acctonvn12345' # THAY THẾ bằng mật khẩu MySQL thực của bạn
     driver-class-name: com.mysql.cj.jdbc.Driver
@@ -16,8 +16,26 @@ spring:
       hibernate:
         format_sql: true # Định dạng SQL cho dễ đọc (tùy chọn)
 
+security:
+  jwt:
+    # Key và Value phải được phân tách bằng dấu ':' và có khoảng trắng
+    secret: sdjfskdjhkjfhsdkjhfksdhkjfshdkjhfksdhkfhskdhkfshdkjfhksdhfkjhsdfhskdhkfshdkshkdhksdhfsdkj
+    expiration: 86400000
+
 # CORS Configuration (RẤT QUAN TRỌNG CHO FE)
 # Cấu hình biến custom cho CORS, sau đó dùng trong @CrossOrigin
 inventory:
   cors:
     allowed-origins: http://localhost:5173,http://localhost:3000
+
+logging:
+  level:
+    root: INFO                # level mặc định
+    org.springframework.web: DEBUG
+    org.hibernate.SQL: DEBUG  # show SQL câu lệnh
+    org.hibernate.type: TRACE # show giá trị bind SQL
+    com.example.inventory: DEBUG # log app của bạn
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/inventory.log   # ghi log ra file
