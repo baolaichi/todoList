@@ -17,7 +17,7 @@ public class Task {
     private long id;
     private String title;
     private String description;
-    private LocalDate deadline;
+    private LocalDateTime deadline;
     private LocalDateTime creatAt;
     private LocalDateTime updatedAt;
 
@@ -31,5 +31,7 @@ public class Task {
     private Priority priority;
 
 
-
+    @ManyToOne
+    @JoinColumn(name = "group_id")
+    private Group group;
 }

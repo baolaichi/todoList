@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 public class TaskDTO {
     private String title;
     private String description;
-    private LocalDate deadline;
+    private LocalDateTime deadline;
     private LocalDateTime creatAt = LocalDateTime.now();
     private LocalDateTime updatedAt;
     private Long userId;
