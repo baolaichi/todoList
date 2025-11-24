@@ -1,6 +1,7 @@
 package com.example.inventory.model;
 
 import com.example.inventory.model.entityEnum.GroupRole;
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 
@@ -9,13 +10,14 @@ import java.util.Set;
 
 @Entity
 @Data
-@Table(name = "group")
-public class Group {
+@Table(name = "groups_todo")
+public class GroupTodo {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private long id;
     private String name;
     private String description;
+    @Enumerated(EnumType.STRING)
     private GroupRole groupRole;
 
     @ManyToOne
@@ -24,7 +26,8 @@ public class Group {
 
     private LocalDateTime createdAt = LocalDateTime.now();
 
-    @OneToMany(mappedBy = "group", cascade = CascadeType.ALL)
+    @OneToMany(mappedBy = "groupsId", cascade = CascadeType.ALL)
+    @JsonIgnore
     private Set<GroupMember> members;
 
 

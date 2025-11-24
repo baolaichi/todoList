@@ -5,7 +5,6 @@ import com.example.inventory.model.entityEnum.Status;
 import jakarta.persistence.*;
 import lombok.Data;
 
-import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -33,5 +32,5 @@ public class Task {
 
     @ManyToOne
     @JoinColumn(name = "group_id")
-    private Group group;
+    private GroupTodo group;
 }
