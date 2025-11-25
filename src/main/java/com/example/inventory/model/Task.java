@@ -33,4 +33,8 @@ public class Task {
     @ManyToOne
     @JoinColumn(name = "group_id")
     private GroupTodo group;
+
+    @ManyToOne
+    @JoinColumn(name = "category_id")
+    private Category category;
 }
