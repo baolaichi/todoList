@@ -5,9 +5,11 @@ import com.example.inventory.model.Task;
 import com.example.inventory.model.dto.CreateGroupDTO;
 import com.example.inventory.model.dto.TaskGroupDTO;
 
+import java.util.List;
+
 public interface GroupService {
     public GroupTodo createGroup(CreateGroupDTO groupDTO, String username);
     public void addMember(Long groupId, Long userIdToAdd, String requesterUsername);
     public Task createTaskInGroup(TaskGroupDTO dto, String requesterUsername);
-
+//    public List<GroupTodo> getGroupByUser(String username);
 }

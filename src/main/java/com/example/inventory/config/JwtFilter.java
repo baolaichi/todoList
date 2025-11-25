@@ -1,5 +1,7 @@
 package com.example.inventory.config;
 
+import com.example.inventory.service.AuthService;
+import com.example.inventory.service.BlacklistService;
 import com.example.inventory.service.CustomUserDetailsService;
 import io.jsonwebtoken.io.SerialException;
 import jakarta.servlet.FilterChain;
@@ -20,6 +22,8 @@ import java.io.IOException;
 public class JwtFilter extends OncePerRequestFilter {
     @Autowired
     private JwtUtil jwtUtil;
+    @Autowired
+    private BlacklistService blacklistService;
 
     @Autowired
     private CustomUserDetailsService userDetailsService;
@@ -38,6 +42,13 @@ public class JwtFilter extends OncePerRequestFilter {
         try { // <--- THÊM TRY CATCH ĐỂ BẮT LỖI TOKEN
             if (header != null && header.startsWith("Bearer ")) {
                 token = header.substring(7);
+
+                if (blacklistService.isBlacklisted(token)) {
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED); // Trả về 401
+                    response.getWriter().write("Token nay da bi vo hieu hoa (Logout)!");
+                    return;
+                }
+
                 username = jwtUtil.extractUsername(token);
             }
 
@@ -71,6 +82,11 @@ public class JwtFilter extends OncePerRequestFilter {
         filterChain.doFilter(request, response);
     }
 
-
+    @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getServletPath();
+        // Bỏ qua filter với các đường dẫn auth
+        return path.startsWith("/api/auth/");
+    }
 
 }

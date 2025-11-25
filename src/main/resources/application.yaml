@@ -15,6 +15,21 @@ spring:
     properties:
       hibernate:
         format_sql: true # Định dạng SQL cho dễ đọc (tùy chọn)
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: laichibaomessi56@gmail.com
+    password: 01062003LaiChiBao  # <-- Sử dụng Mật khẩu ứng dụng 16 ký tự
+    properties:
+      mail:
+        smtp:
+          auth: true
+          starttls:
+            enable: true
+          # Cấu hình Timeout (đơn vị miligiây)
+          connectiontimeout: 5000
+          timeout: 5000
+          writetimeout: 5000
 
 security:
   jwt:
@@ -39,3 +54,5 @@ logging:
     console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
   file:
     name: logs/inventory.log   # ghi log ra file
+
+

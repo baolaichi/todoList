@@ -36,4 +36,7 @@ public class Users {
     private Set<Task> tasks;
 
     private LocalDateTime create_at = LocalDateTime.now();
+
+    private String otp;              // Lưu mã OTP (ví dụ: "123456")
+    private LocalDateTime otpExpiry;
 }

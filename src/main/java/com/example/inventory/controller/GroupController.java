@@ -28,6 +28,7 @@ public class GroupController {
         return  ResponseEntity.ok(groupService.createGroup(groupDTO, username));
     }
 
+
     @PostMapping("/{groupId}/add_member")
     public ResponseEntity<?> addMember(@PathVariable Long groupId, @RequestBody Long userId) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();

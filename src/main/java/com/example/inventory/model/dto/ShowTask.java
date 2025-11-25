@@ -9,11 +9,11 @@ import java.time.LocalDateTime;
 public class ShowTask {
     private String title;
     private LocalDateTime deadline;
-    private LocalDateTime createAt;
+    private LocalDateTime createtAt;
 
-    public ShowTask(String title, LocalDateTime deadline, LocalDateTime createAt) {
+    public ShowTask(String title, LocalDateTime deadline, LocalDateTime createtAt) {
         this.title = title;
         this.deadline = deadline;
-        this.createAt = createAt;
+        this.createtAt = createtAt;
     }
 }

@@ -16,6 +16,7 @@ import jakarta.transaction.Transactional;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Service
 public class GroupServiceImpl implements GroupService {
@@ -122,6 +123,10 @@ public class GroupServiceImpl implements GroupService {
         // 5. Lưu xuống DB
         return taskRepository.save(task);
     }
+
+//    public List<GroupTodo> getGroupByUser(String username){
+//        return memberRepository.findGroupsIdByUsername(username);
+//    }
 
     private boolean isLeader(Long groupId, String username){
         return memberRepository.findByGroupsId_IdAndUser_Username(groupId, username)

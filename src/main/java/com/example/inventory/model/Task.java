@@ -25,7 +25,7 @@ public class Task {
     private Users user; // <-- Sửa thành 'user
 
     @Enumerated(EnumType.STRING)
-    private Status status;
+    private Status status = Status.TODO;
     @Enumerated(EnumType.STRING)
     private Priority priority;
 
