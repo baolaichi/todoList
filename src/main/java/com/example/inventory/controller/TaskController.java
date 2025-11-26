@@ -60,17 +60,15 @@ public class TaskController {
     }
 
     @GetMapping("/show")
-        public ResponseEntity<List<ShowTask>> getAllListForUser(Authentication authentication){
-            try {
-                String username = authentication.getName();
+    public ResponseEntity<List<ShowTask>> getAllListForUser(Authentication authentication) {
+        // Lấy username từ Spring Security
+        String username = authentication.getName();
 
-                Users users = userRepository.findByUsername(username)
-                                .orElseThrow(() -> new RuntimeException("User not found"));
-                List<ShowTask> list = taskService.listTask(users.getId());
-                return ResponseEntity.ok(list);
-            }catch (RuntimeException e){
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(List.of());
-            }
+        // Gọi Service (Logic tìm user và convert nằm hết bên trong)
+        List<ShowTask> list = taskService.getAllTasksForUser(username);
+
+        // Luôn trả về 200 OK (kể cả khi list rỗng)
+        return ResponseEntity.ok(list);
     }
 
     @PatchMapping("/{id}/status")

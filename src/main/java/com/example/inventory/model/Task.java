@@ -39,8 +39,8 @@ public class Task {
     private Category category;
 
     @Column(name = "is_reminded")
-    private boolean isRemind = false;
+    private Boolean isRemind = false;
 
     @Column(name = "is_alert_dismissed")
-    private boolean isAlertDismissed = false;
+    private Boolean isAlertDismissed = false;
 }

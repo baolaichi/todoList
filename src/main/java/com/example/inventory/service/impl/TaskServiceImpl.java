@@ -166,4 +166,24 @@ public class TaskServiceImpl implements TaskService {
                 .map(t -> new ShowTask(t.getTitle(), t.getDeadline(), t.getCreatAt()))
                 .collect(Collectors.toList());
     }
+
+    @Override
+    public List<ShowTask> getAllTasksForUser(String username) {
+        // 1. Tìm User (Service tự gọi Repo)
+        Users user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        // 2. Lấy danh sách Task theo User ID (Sắp xếp mới nhất)
+        // Giả sử Repo có hàm: findByUserIdOrderByCreatAtDesc(Long userId)
+        List<Task> tasks = taskRepository.findByUser_IdOrderByCreatAtDesc(user.getId());
+
+        // 3. Convert Entity -> ShowTask DTO
+        return tasks.stream().map(task -> {
+            ShowTask dto = new ShowTask();
+            dto.setDeadline(task.getDeadline());
+            dto.setTitle(task.getTitle());
+            dto.setDeadline(task.getDeadline());
+            return dto;
+        }).toList();
+    }
 }

@@ -21,22 +21,44 @@ public class ReminderServiceImpl implements ReminderService {
         this.emailService = emailService;
     }
 
-    @Scheduled(cron = "0 * * * * *")
     @Override
-    public void scanForDeadlines(){
-        System.out.println("----Quét deadline---");
+    @Scheduled(cron = "0 * * * * *") // Chạy mỗi phút
+    // @Transactional -> KHÔNG NÊN để @Transactional ở cấp độ hàm lớn này
+    // Vì nếu 1 task lỗi, nó có thể rollback toàn bộ các task khác.
+    public void scanForDeadlines() {
+        System.out.println("---- Bắt đầu quét Deadline ----");
         LocalDateTime now = LocalDateTime.now();
 
+        // 1. Lấy danh sách tất cả task đến hạn của TẤT CẢ mọi người
         List<Task> dueTasks = taskRepository.findByStatusNotAndDeadlineBeforeAndIsRemindFalse(
                 Status.DONE,
                 now
         );
 
-        for (Task task : dueTasks) {
-            sendNotification(task);
+        if (dueTasks.isEmpty()) return;
 
-            task.setRemind(true);
-            taskRepository.save(task);
+        System.out.println("Tìm thấy " + dueTasks.size() + " task cần nhắc nhở.");
+
+        // 2. Duyệt từng task để xử lý
+        for (Task task : dueTasks) {
+            try {
+                // --- LOGIC XỬ LÝ RIÊNG BIỆT CHO TỪNG TASK ---
+
+                // a. Gửi thông báo (Email sẽ lấy từ task -> user -> email)
+                // Nên task của ai thì mail gửi về đúng người đó.
+                sendNotification(task);
+
+                // b. Đánh dấu đã nhắc
+                task.setIsRemind(true); // Hoặc setRemind(true) tuỳ getter/setter của bạn
+
+                // c. Lưu ngay lập tức (Save từng cái)
+                taskRepository.save(task);
+
+            } catch (Exception e) {
+                // Nếu task này bị lỗi (ví dụ mail sai, db lỗi), in log và BỎ QUA
+                // Để vòng lặp tiếp tục chạy sang task tiếp theo
+                System.err.println("Lỗi xử lý task ID " + task.getId() + ": " + e.getMessage());
+            }
         }
     }
 
@@ -89,7 +111,7 @@ public class ReminderServiceImpl implements ReminderService {
         }
 
         // 3. Đánh dấu đã tắt thông báo (Flag = true)
-        task.setAlertDismissed(true);
+        task.setIsAlertDismissed(true);
 
         // 4. Lưu lại vào DB
         taskRepository.save(task);

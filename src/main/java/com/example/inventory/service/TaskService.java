@@ -14,4 +14,5 @@ public interface TaskService {
     Task updatePersonalTask(Long taskId, TaskDTO taskDTO, String username);
     Task statusTask(Long taskId, String username, Status newStatus);
     public List<ShowTask> filterTasksByDeadline(String filterType, String username);
+    List<ShowTask> getAllTasksForUser(String username);
 }

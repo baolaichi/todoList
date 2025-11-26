@@ -17,6 +17,7 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Long> 
     // Tương tự cho hàm exists
     boolean existsByGroupsId_IdAndUser_Id(Long groupId, Long userId);
 
-//    @Query("SELECT gm.groupId FROM GroupMember gm JOIN gm.user u WHERE u.username = :username")
-//    List<Long> findGroupIdsByUsername(@Param("username") String username);
+    //    @Query("SELECT gm.groupId FROM GroupMember gm JOIN gm.user u WHERE u.username = :username")
+    //    List<Long> findGroupIdsByUsername(@Param("username") String username);
+    boolean existsByGroupsId_IdAndUser_Username(Long groupId, String username);
 }
