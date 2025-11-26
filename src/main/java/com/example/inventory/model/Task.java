@@ -37,4 +37,10 @@ public class Task {
     @ManyToOne
     @JoinColumn(name = "category_id")
     private Category category;
+
+    @Column(name = "is_reminded")
+    private boolean isRemind = false;
+
+    @Column(name = "is_alert_dismissed")
+    private boolean isAlertDismissed = false;
 }

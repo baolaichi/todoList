@@ -26,4 +26,12 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
 
     // Dùng cho OVERDUE (Cần thêm điều kiện Status.DONE)
     List<Task> findByUser_UsernameAndStatusNotAndDeadlineBefore(String username, Status status, LocalDateTime now);
+
+    List<Task> findByStatusNotAndDeadlineBeforeAndIsRemindFalse(Status status, LocalDateTime currentTime);
+
+    List<Task> findByUser_UsernameAndDeadlineBeforeAndStatusNotAndIsAlertDismissedFalse(
+            String username,
+            LocalDateTime now,
+            Status status
+    );
 }
