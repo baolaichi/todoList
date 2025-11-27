@@ -10,7 +10,6 @@ import {
   PlusOutlined,
   EyeOutlined,
   CheckCircleOutlined,
-  ClockCircleOutlined,
   ExclamationCircleOutlined,
   EditOutlined,
   DeleteOutlined
@@ -25,23 +24,27 @@ const GroupDetail: React.FC = () => {
   const { id } = useParams(); 
   const myUsername = localStorage.getItem('username');
   
-  // Fix lỗi Warning Antd message
+  // --- 1. FIX WARNING ANTD: Dùng hook useMessage ---
   const [messageApi, contextHolder] = message.useMessage();
 
   // --- STATE ---
   const [groupInfo, setGroupInfo] = useState<any>(null);
+  
+  // Chat
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMsg, setInputMsg] = useState('');
-  const [members, setMembers] = useState<GroupMember[]>([]);
-  const [groupTasks, setGroupTasks] = useState<Task[]>([]);
   
-  // Modal states
+  // Members
+  const [members, setMembers] = useState<GroupMember[]>([]);
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
+
+  // Task
+  const [groupTasks, setGroupTasks] = useState<Task[]>([]);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
-  const [editingTask, setEditingTask] = useState<Task | null>(null); // State để lưu task đang sửa
+  const [editingTask, setEditingTask] = useState<Task | null>(null); // Lưu task đang sửa
   const [taskForm] = Form.useForm();
 
-  // State Xem chi tiết
+  // Xem chi tiết
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [viewTask, setViewTask] = useState<Task | null>(null);
 
@@ -49,12 +52,19 @@ const GroupDetail: React.FC = () => {
   const stompClientRef = useRef<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Helper
-  const getMyUserId = () => members.find(m => m.username === myUsername)?.userId || -1;
+  // --- HELPER FUNCTIONS (PHÂN QUYỀN) ---
+  // Lấy ID của bản thân trong list member
+  const getMyUserId = () => {
+      const me = members.find(m => m.username === myUsername);
+      return me ? me.userId : -1;
+  };
+
   const isLeader = () => groupInfo?.myRole === 'LEADER';
-  
-  // Check quyền sửa: Leader hoặc Người được giao
-  const canEditTask = (task: Task) => isLeader() || task.userId === getMyUserId();
+
+  // Logic: Leader HOẶC Người được giao task thì được sửa
+  const canEditTask = (task: Task) => {
+      return isLeader() || task.userId === getMyUserId();
+  };
 
   const addMessageToState = (newMessage: ChatMessage) => {
     setMessages((prev) => {
@@ -64,7 +74,7 @@ const GroupDetail: React.FC = () => {
     });
   };
 
-  // --- 1. INIT DATA ---
+  // --- INIT DATA ---
   useEffect(() => {
     if (!id) return;
 
@@ -129,16 +139,16 @@ const GroupDetail: React.FC = () => {
     }
   };
 
-  // --- TASK (CREATE / UPDATE / DELETE) ---
-  
-  // Mở modal tạo mới
+  // --- TASK MANAGEMENT (CRUD) ---
+
+  // 1. Mở Modal Giao việc (Tạo mới)
   const openCreateTaskModal = () => {
       setEditingTask(null);
       taskForm.resetFields();
       setIsTaskModalOpen(true);
   };
 
-  // Mở modal sửa
+  // 2. Mở Modal Sửa việc
   const openEditTaskModal = (task: Task) => {
       setEditingTask(task);
       taskForm.setFieldsValue({
@@ -146,13 +156,13 @@ const GroupDetail: React.FC = () => {
           description: task.description,
           assignToUserId: task.userId,
           priority: task.priority,
-          status: task.status, // Cho phép sửa status trong form luôn
+          status: task.status,
           deadline: task.deadline ? dayjs(task.deadline) : null
       });
       setIsTaskModalOpen(true);
   };
 
-  // Xử lý Submit Form (Tạo hoặc Sửa)
+  // 3. Xử lý Lưu (Tạo hoặc Sửa)
   const handleSaveTask = async (values: any) => {
     try {
       const payload = {
@@ -162,11 +172,11 @@ const GroupDetail: React.FC = () => {
       };
       
       if (editingTask) {
-          // Update Task Nhóm
+          // --- LOGIC SỬA TASK ---
           await axiosClient.put(`/user/groups/tasks/${editingTask.id}`, payload);
           messageApi.success("Cập nhật công việc thành công!");
       } else {
-          // Create Task Nhóm
+          // --- LOGIC TẠO TASK ---
           await axiosClient.post('/user/groups/tasks', payload);
           messageApi.success("Đã giao việc thành công!");
       }
@@ -174,13 +184,16 @@ const GroupDetail: React.FC = () => {
       setIsTaskModalOpen(false);
       taskForm.resetFields();
       loadGroupTasks();
-      if(isDetailOpen) setIsDetailOpen(false); // Đóng modal chi tiết nếu đang mở
+
+      // Nếu đang mở chi tiết thì đóng lại hoặc reload chi tiết
+      if(isDetailOpen) setIsDetailOpen(false); 
+
     } catch (error: any) {
       messageApi.error(error.response?.data || "Lỗi xử lý công việc!");
     }
   };
 
-  // Xóa Task (Chỉ Leader)
+  // 4. Xử lý Xóa Task (Chỉ Leader)
   const handleDeleteTask = async (taskId: number) => {
       try {
           await axiosClient.delete(`/user/groups/tasks/${taskId}`);
@@ -191,13 +204,19 @@ const GroupDetail: React.FC = () => {
       }
   };
 
-  // Cập nhật nhanh trạng thái
+  // 5. Cập nhật nhanh trạng thái (Nút check)
   const handleUpdateStatus = async (taskId: number, newStatus: string) => {
-      if (!taskId) return;
+      if (!taskId) {
+          messageApi.error("Lỗi ID Task = 0. Kiểm tra Backend!");
+          return;
+      }
       try {
           await axiosClient.patch(`/user/tasks/${taskId}/status`, { status: newStatus });
           messageApi.success("Cập nhật trạng thái thành công!");
-          loadGroupTasks();
+          
+          loadGroupTasks(); // Reload bảng
+          
+          // Nếu đang mở modal chi tiết thì cập nhật luôn state modal
           if (viewTask && viewTask.id === taskId) {
               setViewTask({ ...viewTask, status: newStatus as any });
           }
@@ -206,7 +225,7 @@ const GroupDetail: React.FC = () => {
       }
   };
 
-  // Xem chi tiết
+  // 6. Xem chi tiết
   const openDetailModal = async (taskId: number) => {
     try {
         const res = await axiosClient.get(`/user/tasks/detail/${taskId}`);
@@ -217,31 +236,34 @@ const GroupDetail: React.FC = () => {
     }
   };
 
-  // --- COLUMNS ---
+  // --- TABLE COLUMNS ---
   const taskColumns = [
     { title: 'Công việc', dataIndex: 'title', render: (t: string) => <b>{t}</b> },
     { title: 'Người làm', dataIndex: 'userId', render: (uid: number) => {
         const user = members.find(m => m.userId === uid);
-        return user ? <Tag color="blue">{user.username}</Tag> : 'N/A';
+        return user ? <Tag color="blue">{user.username}</Tag> : <Tag>N/A</Tag>;
     }},
-    { title: 'Hạn chót', dataIndex: 'deadline', width: 90, render: (d: string) => d ? dayjs(d).format('DD/MM') : '-' },
+    { title: 'Hạn chót', dataIndex: 'deadline', width: 100, render: (d: string) => d ? dayjs(d).format('DD/MM') : '-' },
     { title: 'Trạng thái', dataIndex: 'status', width: 90, render: (s: string) => <Tag color={s === 'DONE' ? 'green' : 'orange'}>{s}</Tag> },
     {
         title: '',
         key: 'action',
-        width: 100,
+        width: 120,
         render: (_: any, record: Task) => (
             <div style={{display: 'flex', gap: 5}}>
+                {/* Nút Xem */}
                 <Tooltip title="Xem">
                     <Button size="small" icon={<EyeOutlined />} onClick={() => openDetailModal(record.id)} />
                 </Tooltip>
-                {/* Nút Sửa cho Leader hoặc Assignee */}
+
+                {/* Nút Sửa: Hiện nếu là Leader HOẶC là Task của mình */}
                 {canEditTask(record) && (
                     <Tooltip title="Sửa">
                          <Button size="small" type="text" icon={<EditOutlined style={{color: '#1890ff'}}/>} onClick={() => openEditTaskModal(record)} />
                     </Tooltip>
                 )}
-                {/* Nút Xóa cho Leader */}
+
+                {/* Nút Xóa: Chỉ hiện nếu là Leader */}
                 {isLeader() && (
                     <Popconfirm title="Xóa task này?" onConfirm={() => handleDeleteTask(record.id)}>
                         <Button size="small" type="text" danger icon={<DeleteOutlined />} />
@@ -353,20 +375,22 @@ const GroupDetail: React.FC = () => {
       </Row>
 
       {/* MODAL MỜI THÀNH VIÊN */}
-      <Modal title="Mời thành viên" open={isAddMemberOpen} onCancel={() => setIsAddMemberOpen(false)} footer={null}>
+      <Modal title="Mời thành viên vào nhóm" open={isAddMemberOpen} onCancel={() => setIsAddMemberOpen(false)} footer={null}>
           <Form onFinish={handleAddMember} layout="vertical">
-              <Form.Item name="username" label="Email/Username" rules={[{required: true}]}><Input /></Form.Item>
+              <Form.Item name="username" label="Email hoặc Tên đăng nhập" rules={[{required: true}]}>
+                  <Input placeholder="Nhập email/username..." />
+              </Form.Item>
               <Button type="primary" htmlType="submit" block>Mời ngay</Button>
           </Form>
       </Modal>
 
-      {/* MODAL TẠO/SỬA TASK */}
+      {/* MODAL GIAO VIỆC / SỬA VIỆC */}
       <Modal title={editingTask ? "Cập nhật công việc" : "Giao việc mới"} open={isTaskModalOpen} onCancel={() => setIsTaskModalOpen(false)} footer={null}>
           <Form form={taskForm} onFinish={handleSaveTask} layout="vertical">
-              <Form.Item name="title" label="Tiêu đề" rules={[{required: true}]}><Input /></Form.Item>
+              <Form.Item name="title" label="Tiêu đề công việc" rules={[{required: true}]}><Input /></Form.Item>
               <Form.Item name="description" label="Mô tả"><Input.TextArea rows={2} /></Form.Item>
               
-              {/* Chỉ Leader mới được đổi người giao việc, Assignee chỉ xem */}
+              {/* Chỉ Leader mới được đổi người, Member chỉ xem mình được giao */}
               <Form.Item name="assignToUserId" label="Giao cho" rules={[{required: true}]}>
                   <Select placeholder="Chọn thành viên" disabled={!isLeader()}>
                       {members.map(m => (
@@ -409,7 +433,7 @@ const GroupDetail: React.FC = () => {
                 <Descriptions.Item label="Người làm">{members.find(m => m.userId === viewTask.userId)?.username}</Descriptions.Item>
               </Descriptions>
 
-              {/* Nút cập nhật trạng thái nhanh cho người được giao */}
+              {/* Nút cập nhật trạng thái nhanh (Dành cho người được giao hoặc Leader) */}
               {canEditTask(viewTask) && (
                   <div style={{marginTop: 20, paddingTop: 15, borderTop: '1px dashed #ccc', display: 'flex', gap: 10, justifyContent: 'center'}}>
                       <Button onClick={() => handleUpdateStatus(viewTask.id, 'IN_PROGRESS')}>Đang làm</Button>
