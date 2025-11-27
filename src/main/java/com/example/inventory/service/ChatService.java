@@ -6,7 +6,6 @@ import com.example.inventory.model.dto.ChatMessageDTO;
 import java.util.List;
 
 public interface ChatService {
-    List<ChatMessage> getGroupChatHistory(Long groupId, String username);
     ChatMessage sendMessage(ChatMessageDTO dto, String username);
 
     // Hàm lấy lịch sử

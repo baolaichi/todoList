@@ -2,12 +2,14 @@ package com.example.inventory.controller;
 
 import com.example.inventory.model.Users;
 import com.example.inventory.model.dto.ResetPasswordDTO;
+import com.example.inventory.model.dto.UserProfileDTO;
 import com.example.inventory.service.AuthService;
 import com.example.inventory.service.BlacklistService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.Map;
@@ -77,6 +79,7 @@ public class AuthController {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
     }
+
 
     public static record AuthRequest(String username, String password) {}
     public static record AuthResponse(String token) {}

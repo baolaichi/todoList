@@ -3,6 +3,7 @@ package com.example.inventory.service.impl;
 import com.example.inventory.config.JwtUtil;
 import com.example.inventory.model.TokenBlacklist;
 import com.example.inventory.model.Users;
+import com.example.inventory.model.dto.UserProfileDTO;
 import com.example.inventory.repository.BlacklistRepository;
 import com.example.inventory.repository.UserRepository;
 import com.example.inventory.service.AuthService;
@@ -10,6 +11,7 @@ import com.example.inventory.service.EmailService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 
@@ -53,12 +55,16 @@ public class AuthServiceImpl implements AuthService{
     @Override
     public String login(String username, String password){
         try {
+            // Xác thực username/password
             authenticationManager.authenticate(new UsernamePasswordAuthenticationToken(username, password));
-            log.info("Start create token after enter information");
+
+            log.info("Login success, generating token for: " + username);
             return jwtUtil.generateToken(username);
-        }catch (Exception e){
-            log.error("lỗi nhâp sai tài khoản: " + username + "||" + password);
-            return "Error: " + e.getMessage();
+
+        } catch (AuthenticationException e) {
+            // QUAN TRỌNG: Phải ném lỗi ra để Controller bắt được và trả về 401
+            log.error("Login failed for user: " + username);
+            throw new RuntimeException("Sai tài khoản hoặc mật khẩu!");
         }
     }
 
@@ -97,6 +103,22 @@ public class AuthServiceImpl implements AuthService{
         users.setOtp(null);
         users.setOtpExpiry(null);
         userRepository.save(users);
+    }
+
+    @Override
+    public UserProfileDTO getMyProfile(String username) {
+        // Tìm user trong DB
+        Users user = userRepository.findByUsername(username)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy thông tin người dùng: " + username));
+
+        // Convert Entity sang DTO
+        UserProfileDTO dto = new UserProfileDTO();
+        dto.setId(user.getId());
+        dto.setUsername(user.getUsername());
+        dto.setEmail(user.getEmail());
+        dto.setRole(user.getRole());
+
+        return dto;
     }
 
 }

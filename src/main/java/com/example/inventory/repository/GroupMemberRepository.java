@@ -11,13 +11,15 @@ import java.util.Optional;
 
 public interface GroupMemberRepository extends JpaRepository<GroupMember, Long> {
 
-    // Sửa thành GroupsId_Id (Hơi lạ nhưng đúng với tên biến của bạn)
     Optional<GroupMember> findByGroupsId_IdAndUser_Username(Long groupId, String username);
 
-    // Tương tự cho hàm exists
+    // 2. Check xem user đã trong nhóm chưa
     boolean existsByGroupsId_IdAndUser_Id(Long groupId, Long userId);
+    boolean existsByGroupsId_IdAndUser_Username(Long groupId, String username); // Check bằng username cho tiện
 
-    //    @Query("SELECT gm.groupId FROM GroupMember gm JOIN gm.user u WHERE u.username = :username")
-    //    List<Long> findGroupIdsByUsername(@Param("username") String username);
-    boolean existsByGroupsId_IdAndUser_Username(Long groupId, String username);
+    // 3. Lấy danh sách các nhóm mà user này tham gia (Để hiển thị trang "Nhóm của tôi")
+    List<GroupMember> findByUser_Username(String username);
+
+    // 4. Lấy danh sách thành viên của 1 nhóm (Để hiển thị trong Group Detail)
+    List<GroupMember> findByGroupsId_Id(Long groupId);
 }

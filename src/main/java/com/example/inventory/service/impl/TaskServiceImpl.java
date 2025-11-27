@@ -61,7 +61,7 @@ public class TaskServiceImpl implements TaskService {
         try {
             List<Task> tasks = taskRepository.findByUser_Id(userId);
             return tasks.stream()
-                    .map(t -> new ShowTask(t.getTitle(), t.getDeadline(), t.getCreatAt()))
+                    .map(t -> new ShowTask(t.getId(), t.getTitle(), t.getDeadline(), t.getCreatAt(), t.getPriority(), t.getStatus()))
                     .collect(Collectors.toList());
         }catch (RuntimeException e){
             throw new RuntimeException("user không có Task");
@@ -163,27 +163,62 @@ public class TaskServiceImpl implements TaskService {
         // Map kết quả cuối cùng sang DTO (ShowTask)
         return tasks.stream()
                 // 2. Kiểm tra lại lỗi chính tả: 'CreatAt' hay 'CreatedAt'
-                .map(t -> new ShowTask(t.getTitle(), t.getDeadline(), t.getCreatAt()))
+                .map(t -> new ShowTask(t.getId(), t.getTitle(), t.getDeadline(), t.getCreatAt(), t.getPriority(), t.getStatus()))
                 .collect(Collectors.toList());
     }
 
     @Override
     public List<ShowTask> getAllTasksForUser(String username) {
-        // 1. Tìm User (Service tự gọi Repo)
         Users user = userRepository.findByUsername(username)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
-        // 2. Lấy danh sách Task theo User ID (Sắp xếp mới nhất)
-        // Giả sử Repo có hàm: findByUserIdOrderByCreatAtDesc(Long userId)
         List<Task> tasks = taskRepository.findByUser_IdOrderByCreatAtDesc(user.getId());
 
-        // 3. Convert Entity -> ShowTask DTO
         return tasks.stream().map(task -> {
             ShowTask dto = new ShowTask();
-            dto.setDeadline(task.getDeadline());
+
+            // --- QUAN TRỌNG: PHẢI CÓ DÒNG NÀY ---
+            dto.setId(task.getId());
+            // ------------------------------------
+
             dto.setTitle(task.getTitle());
-            dto.setDeadline(task.getDeadline());
+            // Xử lý deadline null an toàn
+            if (task.getDeadline() != null) {
+                dto.setDeadline(task.getDeadline());
+            }
+            dto.setCreatetAt(task.getCreatAt());
+            dto.setStatus(task.getStatus());
+            dto.setPriority(task.getPriority());
+
             return dto;
         }).toList();
+    }
+
+    @Override
+    public TaskDTO getTaskDetail(Long taskId, String username) {
+        // 1. Tìm Task
+        Task task = taskRepository.findById(taskId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy công việc với ID: " + taskId));
+
+        // 2. KIỂM TRA QUYỀN XEM (Bảo mật)
+        boolean isOwner = task.getUser().getUsername().equals(username);
+
+
+        // 3. Convert sang DTO trả về
+        TaskDTO dto = new TaskDTO();
+        dto.setTitle(task.getTitle());
+        dto.setDescription(task.getDescription());
+        dto.setDeadline(task.getDeadline());
+        dto.setCreatAt(task.getCreatAt());
+        dto.setUpdatedAt(task.getUpdatedAt());
+        dto.setStatus(task.getStatus());
+        dto.setPriority(task.getPriority());
+
+        if (task.getDeadline() != null) {
+            dto.setDeadline(task.getDeadline()); // Hoặc giữ LocalDateTime tùy DTO của bạn
+        }
+
+
+        return dto;
     }
 }

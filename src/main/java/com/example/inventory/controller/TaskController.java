@@ -71,6 +71,14 @@ public class TaskController {
         return ResponseEntity.ok(list);
     }
 
+    @GetMapping("/detail/{id}")
+    public ResponseEntity<TaskDTO> showTaskDetails(@PathVariable long id, Authentication authentication){
+        String username = authentication.getName();
+        TaskDTO taskDTO = taskService.getTaskDetail(id, username);
+
+        return ResponseEntity.ok(taskDTO);
+    }
+
     @PatchMapping("/{id}/status")
     public ResponseEntity<?> updateStatus(@PathVariable long id, @RequestBody Map<String, String> requestBody){
         try {

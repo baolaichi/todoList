@@ -22,8 +22,9 @@ import java.io.IOException;
 public class JwtFilter extends OncePerRequestFilter {
     @Autowired
     private JwtUtil jwtUtil;
+
     @Autowired
-    private BlacklistService blacklistService;
+    private BlacklistService blacklistService; // Nên dùng BlacklistService thay vì AuthService để tránh vòng lặp
 
     @Autowired
     private CustomUserDetailsService userDetailsService;
@@ -34,19 +35,19 @@ public class JwtFilter extends OncePerRequestFilter {
                                     FilterChain filterChain)
             throws SerialException, IOException, ServletException {
 
-        // 1. Lấy header
         String header = request.getHeader("Authorization");
         String token = null;
         String username = null;
 
-        try { // <--- THÊM TRY CATCH ĐỂ BẮT LỖI TOKEN
+        try {
             if (header != null && header.startsWith("Bearer ")) {
                 token = header.substring(7);
 
+                // Kiểm tra Token có bị Blacklist không
                 if (blacklistService.isBlacklisted(token)) {
-                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED); // Trả về 401
+                    response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                     response.getWriter().write("Token nay da bi vo hieu hoa (Logout)!");
-                    return;
+                    return; // Dừng lại ngay
                 }
 
                 username = jwtUtil.extractUsername(token);
@@ -54,11 +55,6 @@ public class JwtFilter extends OncePerRequestFilter {
 
             if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = userDetailsService.loadUserByUsername(username);
-
-                // --- LOG ĐỂ DEBUG (Xem console khi chạy) ---
-                System.out.println("DEBUG: Đang check User: " + username);
-                System.out.println("DEBUG: Quyền trong DB: " + userDetails.getAuthorities());
-                // -------------------------------------------
 
                 if (jwtUtil.validateToken(token, userDetails)) {
                     UsernamePasswordAuthenticationToken auth =
@@ -69,14 +65,12 @@ public class JwtFilter extends OncePerRequestFilter {
                             );
                     auth.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(auth);
-                } else {
-                    System.out.println("DEBUG: Token không hợp lệ hoặc hết hạn!");
                 }
             }
         } catch (Exception e) {
-            // Nếu token hết hạn hoặc lỗi, in ra để biết
-            System.out.println("DEBUG ERROR: Lỗi xác thực token: " + e.getMessage());
-            // e.printStackTrace(); // Bật dòng này nếu muốn xem full lỗi
+            // Nếu token lỗi (hết hạn, sai format...), ta chỉ log ra và KHÔNG set authentication.
+            // Spring Security ở phía sau sẽ tự chặn lại (trả về 403) nếu API đó yêu cầu quyền.
+            System.out.println("DEBUG JWT ERROR: " + e.getMessage());
         }
 
         filterChain.doFilter(request, response);
@@ -85,8 +79,6 @@ public class JwtFilter extends OncePerRequestFilter {
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
         String path = request.getServletPath();
-        // Bỏ qua filter với các đường dẫn auth
         return path.startsWith("/api/auth/");
     }
-
 }

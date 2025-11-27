@@ -26,9 +26,7 @@ public class GroupTodo {
 
     private LocalDateTime createdAt = LocalDateTime.now();
 
-    @OneToMany(mappedBy = "groupsId", cascade = CascadeType.ALL)
-    @JsonIgnore
-    private Set<GroupMember> members;
+    private int memberCount;
 
 
 }

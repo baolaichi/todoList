@@ -37,6 +37,7 @@ public interface TaskRepository extends JpaRepository<Task, Long> {
             LocalDateTime now,
             Status status
     );
+    List<Task> findByGroup_Id(Long groupId);
 
     List<Task> findByUser_IdOrderByCreatAtDesc(long Id);
 }
