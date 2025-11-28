@@ -28,5 +28,7 @@ public class GroupTodo {
 
     private int memberCount;
 
+    private LocalDateTime lastCleanupDate = LocalDateTime.now();
+
 
 }

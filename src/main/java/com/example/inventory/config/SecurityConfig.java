@@ -51,6 +51,7 @@ public class SecurityConfig {
 
                         // Cấu hình quyền truy cập
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/uploads/**").permitAll()
 
                         .requestMatchers("/api/user/**").hasAnyRole("OWNER", "ADMIN", "VIEWER")
 

@@ -1,7 +1,9 @@
 package com.example.inventory.repository;
 
+import aj.org.objectweb.asm.commons.Remapper;
 import com.example.inventory.model.GroupMember;
 import com.example.inventory.model.GroupTodo;
+import com.example.inventory.model.entityEnum.GroupRole;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -22,4 +24,6 @@ public interface GroupMemberRepository extends JpaRepository<GroupMember, Long> 
 
     // 4. Lấy danh sách thành viên của 1 nhóm (Để hiển thị trong Group Detail)
     List<GroupMember> findByGroupsId_Id(Long groupId);
+
+    Optional<GroupMember> findByGroupsId_IdAndRole(Long groupId, GroupRole role);
 }

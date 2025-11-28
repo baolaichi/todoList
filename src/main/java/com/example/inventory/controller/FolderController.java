@@ -2,6 +2,7 @@ package com.example.inventory.controller;
 
 import com.example.inventory.service.impl.FolderServiceImpl;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -15,8 +16,6 @@ public class FolderController {
     @Autowired
     private FolderServiceImpl folderService;
 
-    // 1. Lấy nội dung thư mục
-    // GET /api/user/groups/{groupId}/folders?folderId=...
     @GetMapping("/{groupId}/folders")
     public ResponseEntity<?> getFolderContent(
             @PathVariable Long groupId,
@@ -25,7 +24,6 @@ public class FolderController {
         return ResponseEntity.ok(folderService.getFolderContent(groupId, folderId, username));
     }
 
-    // 2. Tạo thư mục mới
     @PostMapping("/{groupId}/folders")
     public ResponseEntity<?> createFolder(
             @PathVariable Long groupId,
@@ -38,14 +36,32 @@ public class FolderController {
         return ResponseEntity.ok("Tạo thư mục thành công");
     }
 
-    // 3. Upload file vào thư mục
-    @PostMapping("/{groupId}/folders/{folderId}/files")
+    @PostMapping(value = "/{groupId}/folders/{folderId}/files", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<?> uploadFile(
             @PathVariable Long groupId,
             @PathVariable Long folderId,
             @RequestParam("file") MultipartFile file) {
+
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         folderService.uploadFile(groupId, folderId, file, username);
         return ResponseEntity.ok("Upload file thành công");
+    }
+
+    @DeleteMapping("/{groupId}/files/{fileId}")
+    public ResponseEntity<?> deleteFile(
+            @PathVariable Long groupId,
+            @PathVariable Long fileId) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        folderService.deleteFile(groupId, fileId, username);
+        return ResponseEntity.ok("Đã xóa file thành công");
+    }
+
+    @DeleteMapping("/{groupId}/folders/{folderId}")
+    public ResponseEntity<?> deleteFolder(
+            @PathVariable Long groupId,
+            @PathVariable Long folderId) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        folderService.deleteFolder(groupId, folderId, username);
+        return ResponseEntity.ok("Đã xóa thư mục thành công");
     }
 }

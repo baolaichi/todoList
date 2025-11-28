@@ -30,6 +30,11 @@ spring:
           connectiontimeout: 5000
           timeout: 5000
           writetimeout: 5000
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+      resolve-lazily: true
 
 security:
   jwt:
@@ -55,4 +60,6 @@ logging:
   file:
     name: logs/inventory.log   # ghi log ra file
 
-
+app:
+  upload:
+    dir: ${user.home}/inventory_uploads
