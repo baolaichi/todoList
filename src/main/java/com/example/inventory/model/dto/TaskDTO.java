@@ -13,6 +13,7 @@ import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.List;
 
 @Data
 @AllArgsConstructor
@@ -22,11 +23,23 @@ public class TaskDTO {
     private String title;
     private String description;
     private LocalDateTime deadline;
-    private LocalDateTime creatAt = LocalDateTime.now();
+    private LocalDateTime creatAt;
     private LocalDateTime updatedAt;
     private Long userId;
     private Status status;
     private Priority priority;
     private Long groupId;
+
+    // Dùng để HIỂN THỊ (Output) - Trả về danh sách object {id, name}
+    private List<AssigneeDTO> assignees;
+
+    // Dùng để NHẬP LIỆU (Input) - Nhận về danh sách ID [1, 2, 3]
+    private List<Long> assigneeIds;
+
+    @Data
+    public static class AssigneeDTO {
+        private Long userId;
+        private String username;
+    }
 
 }

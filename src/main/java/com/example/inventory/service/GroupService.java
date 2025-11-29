@@ -9,12 +9,15 @@ import java.util.List;
 public interface GroupService {
     public GroupDTO createGroup(CreateGroupDTO groupDTO, String username);
     public void addMember(Long groupId, AddMemberRequest request, String requesterUsername);
-    public Task createTaskInGroup(TaskGroupDTO dto, String requesterUsername);
+    public TaskGroupDTO createTaskInGroup(TaskGroupDTO dto, String requesterUsername);
     public List<GroupDTO> getMyGroups(String username);
     public GroupDTO getGroupDetail(Long groupId, String username);
     public List<GroupMemberDTO> getGroupMembers(Long groupId, String username);
-    public Task updateTaskInGroup(Long taskId, TaskDTO dto, String requesterUsername);
-    public List<TaskDTO> getTasksByGroupId(Long groupId, String username);
+    public TaskGroupDTO updateTaskInGroup(Long taskId, TaskGroupDTO dto, String requesterUsername);
+    public List<TaskGroupDTO> getTasksByGroupId(Long groupId, String username);
     public void deleteTaskInGroup(Long taskId, String username);
-
+    public List<WorkLogDTO> getDailyReports(Long groupId);
+    public void createWorkLog(Long taskId, String content, String username);
+    List<WorkLogDTO> getWorkLogs(Long taskId, String username);
+    public TaskDTO getTaskGroupDetail(Long taskId, String username);
 }

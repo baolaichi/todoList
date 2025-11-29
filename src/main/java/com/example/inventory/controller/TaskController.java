@@ -60,12 +60,12 @@ public class TaskController {
     }
 
     @GetMapping("/show")
-    public ResponseEntity<List<ShowTask>> getAllListForUser(Authentication authentication) {
+    public ResponseEntity<List<TaskDTO>> getAllListForUser(Authentication authentication) {
         // Lấy username từ Spring Security
         String username = authentication.getName();
 
         // Gọi Service (Logic tìm user và convert nằm hết bên trong)
-        List<ShowTask> list = taskService.getAllTasksForUser(username);
+        List<TaskDTO> list = taskService.getAllTasksForUser(username);
 
         // Luôn trả về 200 OK (kể cả khi list rỗng)
         return ResponseEntity.ok(list);
@@ -104,7 +104,7 @@ public class TaskController {
     public ResponseEntity<?> filterTasks(@RequestParam String type) {
         try {
             String username = SecurityContextHolder.getContext().getAuthentication().getName();
-            List<ShowTask> tasks = taskService.filterTasksByDeadline(type, username);
+            List<TaskDTO> tasks = taskService.filterTasksByDeadline(type, username);
 
             return ResponseEntity.ok(tasks);
         } catch (RuntimeException e) {

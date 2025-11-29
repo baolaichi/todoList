@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Layout, Menu, Avatar, Dropdown, Badge, notification, Popover, List, Typography, Empty, Modal, Button, Descriptions, Tooltip, Input } from 'antd';
+import { Layout, Menu, Avatar, Dropdown, Badge, notification, Popover, List, Typography, Empty, Modal, Button, Descriptions, Input, Tooltip } from 'antd';
 import {
   UserOutlined,
   TeamOutlined,
@@ -12,13 +12,15 @@ import {
   IdcardOutlined,
   MessageOutlined,
   CloseOutlined,
-  SendOutlined
+  SendOutlined,
+  CheckCircleOutlined
 } from '@ant-design/icons';
 import { useNavigate, Outlet, useLocation } from 'react-router-dom';
 import axiosClient from '../api/axiosClient';
 import SockJS from 'sockjs-client';
 import Stomp from 'stompjs';
 import type { Group, ChatMessage } from '../types';
+import dayjs from 'dayjs';
 
 const { Header, Content, Sider } = Layout;
 const { Text, Title } = Typography;
@@ -37,13 +39,13 @@ const MainLayout: React.FC = () => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
 
-  // --- STATE CHAT HEADS ---
+  // --- STATE CHAT HEADS (Tích hợp trực tiếp) ---
   const [showChatHeads, setShowChatHeads] = useState(false);
   const [myGroups, setMyGroups] = useState<Group[]>([]);
   const [unreadMap, setUnreadMap] = useState<Record<number, number>>({});
   
   const [activeChatId, setActiveChatId] = useState<number | null>(null);
-  const activeChatIdRef = useRef<number | null>(null); // FIX: Ref để socket đọc được state mới nhất
+  const activeChatIdRef = useRef<number | null>(null); // Ref để socket đọc state mới nhất
   
   const [miniMessages, setMiniMessages] = useState<ChatMessage[]>([]);
   const [miniInput, setMiniInput] = useState('');
@@ -51,32 +53,41 @@ const MainLayout: React.FC = () => {
   const miniMessagesEndRef = useRef<HTMLDivElement>(null);
   const stompClientRef = useRef<any>(null);
 
-  // Đồng bộ State -> Ref
+  // Đồng bộ State -> Ref cho Chat (Fix lỗi Stale Closure)
   useEffect(() => {
       activeChatIdRef.current = activeChatId;
   }, [activeChatId]);
 
-  // --- 1. CHECK TOKEN & INIT ---
+  // --- 1. CHECK TOKEN & INIT DATA ---
   useEffect(() => {
     const token = localStorage.getItem('token');
     if (!token) { navigate('/'); return; }
 
     const initSystem = async () => {
       try {
-          // Load Groups
+          // 1. Load Groups cho Chat Heads
           const resGroups = await axiosClient.get<Group[]>('/user/groups');
           setMyGroups(resGroups.data);
           if (resGroups.data.length > 0) connectGlobalSocket(resGroups.data);
 
-          // Load Alerts
+          // 2. Load Alerts cho Chuông thông báo
           const resAlerts = await axiosClient.get<any[]>('/user/alerts');
-          if (resAlerts.data && resAlerts.data.length > 0) {
-            setNotificationsList(resAlerts.data);
-            resAlerts.data.forEach((item: any) => {
-                api.warning({ message: '⏳ HẠN CHÓT', description: item.title || item, duration: 5 } as any);
+          const alertsData = resAlerts.data || [];
+          setNotificationsList(alertsData);
+
+          // Hiện thông báo nếu có
+          if (alertsData.length > 0) {
+            const audio = new Audio('https://www.soundjay.com/buttons/sounds/button-10.mp3');
+            audio.play().catch(() => {});
+            alertsData.forEach((item: any) => {
+                const desc = typeof item === 'string' ? item : `Công việc "${item.title}" đã quá hạn!`;
+                api.warning({ message: '⏳ CẢNH BÁO HẠN CHÓT', description: desc, duration: 5, placement: 'topRight' } as any);
             });
           }
-      } catch (e) { console.error(e); }
+      } catch (e: any) {
+          if (e.response?.status === 401) handleLogout();
+          console.error(e);
+      }
     };
     initSystem();
 
@@ -105,10 +116,9 @@ const MainLayout: React.FC = () => {
   };
 
   const handleIncomingMessage = (msg: ChatMessage, groupId: number) => {
-    // FIX: Dùng Ref để lấy ID đang mở hiện tại
     const currentOpenId = activeChatIdRef.current;
 
-    // Nếu là tin nhắn của mình
+    // Tin nhắn của mình
     if (msg.sender.username === username) {
         if (currentOpenId === groupId) {
            setMiniMessages(prev => {
@@ -122,26 +132,23 @@ const MainLayout: React.FC = () => {
 
     // Tin nhắn người khác
     if (currentOpenId === groupId) {
-        // Đang mở đúng nhóm đó -> Hiện tin nhắn
         setMiniMessages(prev => [...prev, msg]);
         setTimeout(scrollMiniChatBottom, 100);
     } else {
-        // Đang đóng hoặc mở nhóm khác -> Hiện thông báo đỏ
         setUnreadMap(prev => ({ ...prev, [groupId]: (prev[groupId] || 0) + 1 }));
-        setShowChatHeads(true); // Tự động bung list nhóm ra
+        setShowChatHeads(true); // Bung chat heads ra để báo hiệu
         const audio = new Audio('https://www.soundjay.com/buttons/sounds/button-16.mp3');
         audio.play().catch(() => {});
     }
   };
 
-  // Mở box chat mini
   const handleOpenMiniChat = async (groupId: number) => {
     if (activeChatId === groupId) {
-        setActiveChatId(null); // Toggle tắt
+        setActiveChatId(null); // Đóng nếu đang mở
         return;
     }
     setActiveChatId(groupId);
-    setUnreadMap(prev => ({ ...prev, [groupId]: 0 })); // Xóa badge unread
+    setUnreadMap(prev => ({ ...prev, [groupId]: 0 })); // Reset unread
     
     try {
         const res = await axiosClient.get(`/chat/history/${groupId}`);
@@ -162,18 +169,27 @@ const MainLayout: React.FC = () => {
         const res = await axiosClient.post('/chat/send', { groupId: activeChatId, content: tempMsg });
         setMiniMessages(prev => [...prev, res.data]);
         setTimeout(scrollMiniChatBottom, 50);
-    } catch (e) { }
+    } catch (e) { console.error("Lỗi gửi tin"); }
   };
 
-  // --- 3. PROFILE & LOGOUT ---
+  // --- 3. PROFILE & LOGOUT & ALERTS ---
   const handleOpenProfile = async () => {
     setIsProfileOpen(true);
     try {
       const res = await axiosClient.get('/user/profile');
       setUserProfile(res.data);
-    } catch (error) {
-      setUserProfile({ username: username, email: '...', role: 'VIEWER' });
+    } catch (error: any) {
+      if (error.response?.status === 401) handleLogout();
+      else setUserProfile({ username: username, email: '...', role: 'VIEWER' });
     }
+  };
+
+  const handleDismissAlert = async (item: any) => {
+    try {
+        if (item.group) await axiosClient.patch(`/user/groups/tasks/${item.id}/dismiss`);
+        else await axiosClient.patch(`/user/tasks/${item.id}/dismiss-alert`);
+        setNotificationsList(prev => prev.filter(n => n.id !== item.id));
+    } catch (error) { console.error(error); }
   };
 
   const handleLogout = async () => {
@@ -188,36 +204,126 @@ const MainLayout: React.FC = () => {
   ];
 
   const notificationContent = (
-    <div style={{ width: 300, maxHeight: 400, overflowY: 'auto' }}>
+    <div style={{ width: 350, maxHeight: 400, overflowY: 'auto' }}>
       {notificationsList.length === 0 ? (
         <Empty description="Không có thông báo mới" image={Empty.PRESENTED_IMAGE_SIMPLE} />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-          {notificationsList.map((item: any, index: number) => (
-            <div key={index} style={{ padding: '12px', background: '#fff1f0', borderRadius: '8px', borderLeft: '4px solid #ff4d4f', display: 'flex', gap: '12px' }}>
-              <ExclamationCircleOutlined style={{ color: '#ff4d4f', fontSize: '20px', marginTop: '2px' }} />
-              <div>
-                <Text strong style={{ color: '#cf1322', display: 'block' }}>{typeof item === 'string' ? 'Thông báo' : `Quá hạn: ${item.title}`}</Text>
-                <div style={{ fontSize: '12px', color: '#555' }}>{typeof item === 'string' ? item : `Hạn chót: ${item.deadline}`}</div>
-              </div>
-            </div>
-          ))}
+          {notificationsList.map((item: any, index: number) => {
+            const isGroup = !!item.group;
+            return (
+                <div key={index} style={{ padding: '12px', background: '#fff1f0', borderRadius: '8px', borderLeft: '4px solid #ff4d4f', display: 'flex', gap: '12px', position: 'relative' }}>
+                  <ExclamationCircleOutlined style={{ color: '#ff4d4f', fontSize: '20px', marginTop: '2px' }} />
+                  <div style={{flex: 1}}>
+                    <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start'}}>
+                        <Text strong style={{ color: '#cf1322', display: 'block' }}>{isGroup ? '[Nhóm] ' : '[Cá nhân] '} Quá hạn</Text>
+                        <Tooltip title="Đã hiểu"><CheckCircleOutlined onClick={() => handleDismissAlert(item)} style={{cursor: 'pointer', color: '#1890ff', fontSize: 16}}/></Tooltip>
+                    </div>
+                    <div style={{fontWeight: 600, marginBottom: 2}}>{item.title}</div>
+                    <div style={{ fontSize: '12px', color: '#555' }}>Hạn chót: {dayjs(item.deadline).format('DD/MM HH:mm')}</div>
+                  </div>
+                </div>
+            );
+          })}
         </div>
       )}
     </div>
   );
 
+  // Tính tổng số tin chưa đọc
+  const totalUnread = Object.values(unreadMap).reduce((a, b) => a + b, 0);
+
   return (
     <Layout style={{ minHeight: '100vh' }}>
       {contextHolder}
 
-      {/* --- CHAT HEADS & MINI BOX --- */}
+      {/* --- SIDEBAR --- */}
+      <Sider 
+        collapsible 
+        collapsed={collapsed} 
+        onCollapse={(value) => setCollapsed(value)}
+        width={260} 
+        theme="light" 
+        breakpoint="lg"
+        collapsedWidth="80" 
+        style={{ 
+            boxShadow: '2px 0 8px rgba(0,0,0,0.05)', 
+            zIndex: 100,
+            height: '100vh',
+            position: 'fixed',
+            left: 0,
+            top: 0,
+        }}
+      >
+        <div style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid #f0f0f0' }}>
+            {collapsed ? (
+                <h2 style={{ color: '#1890ff', margin: 0, fontWeight: 800, fontSize: '20px' }}>IA</h2>
+            ) : (
+                <h2 style={{ color: '#1890ff', margin: 0, fontWeight: 800, fontSize: '20px' }}>INVENTORY APP</h2>
+            )}
+        </div>
+        
+        <Menu
+          mode="inline"
+          selectedKeys={[location.pathname]}
+          style={{ borderRight: 0, padding: '16px 8px' }}
+          items={[
+            { key: '/dashboard', icon: <DashboardOutlined />, label: 'Tổng quan & Task', onClick: () => navigate('/dashboard') },
+            { key: '/groups', icon: <TeamOutlined />, label: 'Nhóm làm việc', onClick: () => navigate('/groups') },
+            { type: 'divider' },
+            { key: 'settings', icon: <SettingOutlined />, label: 'Cài đặt', disabled: true },
+          ]}
+        />
+      </Sider>
+
+      <Layout>
+        {/* --- CONTENT WRAPPER (TỰ ĐỘNG CĂN CHỈNH) --- */}
+        <div style={{ marginLeft: collapsed ? 80 : 260, transition: 'margin-left 0.2s', display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
+            
+            {/* Header */}
+            <Header style={{ padding: '0 24px', background: 'rgba(255, 255, 255, 0.8)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', position: 'sticky', top: 0, zIndex: 99 }}>
+                <span style={{ fontWeight: 600, fontSize: 18, color: '#333' }}>
+                    {location.pathname.includes('/dashboard') ? 'Quản lý công việc' : 'Nhóm làm việc'}
+                </span>
+                
+                <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
+                    <Popover content={notificationContent} title="Thông báo quá hạn" trigger="click" placement="bottomRight">
+                        <Badge count={notificationsList.length} overflowCount={99}>
+                            <BellOutlined style={{ fontSize: 22, cursor: 'pointer', color: '#64748b' }} />
+                        </Badge>
+                    </Popover>
+                    
+                    <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" arrow>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
+                            <span style={{ fontWeight: 500 }}>{username}</span>
+                            <Avatar style={{ backgroundColor: '#1890ff' }} icon={<UserOutlined />} />
+                        </div>
+                    </Dropdown>
+                </div>
+            </Header>
+
+            {/* Nội dung chính (Boxed Layout) */}
+            <Content style={{ margin: '24px 24px 0', flex: 1 }}>
+                {/* Giới hạn chiều rộng max 1200px để giao diện gọn gàng trên màn hình lớn */}
+                <div style={{ maxWidth: 1200, margin: '0 auto', width: '100%' }}>
+                    <div className="site-layout-content">
+                         <Outlet />
+                    </div>
+                </div>
+            </Content>
+
+            <div style={{ textAlign: 'center', padding: '20px', color: '#aaa', fontSize: '12px' }}>
+                ©2025 Inventory App System
+            </div>
+        </div>
+      </Layout>
+
+      {/* --- FLOAT CHAT BUTTONS (CHAT HEADS) --- */}
       <div style={{ position: 'fixed', right: 24, bottom: 24, zIndex: 2000, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 12 }}>
           
-          {/* Danh sách nhóm */}
+          {/* Danh sách Chat Heads */}
           <div style={{ 
-              display: 'flex', flexDirection: 'column', gap: 12, 
-              marginBottom: 10, 
+              display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 10, 
               opacity: showChatHeads ? 1 : 0, 
               transform: showChatHeads ? 'translateY(0)' : 'translateY(20px)',
               pointerEvents: showChatHeads ? 'auto' : 'none', 
@@ -236,27 +342,27 @@ const MainLayout: React.FC = () => {
                                 boxShadow: '0 4px 10px rgba(0,0,0,0.1)'
                             }}
                             icon={<TeamOutlined />}
-                            // Avatar tạo từ tên nhóm
-                            src={`https://ui-avatars.com/api/?name=${group.name}&background=random&color=fff&size=128`}
                             onClick={() => handleOpenMiniChat(group.id)}
-                          />
+                          >{group.name[0].toUpperCase()}</Avatar>
                       </Badge>
                   </Tooltip>
               ))}
           </div>
 
-          {/* Nút Chat Toggle */}
-          <Button 
-            type="primary" 
-            shape="circle" 
-            size="large" 
-            style={{ width: 60, height: 60, boxShadow: '0 6px 16px rgba(37, 99, 235, 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            icon={showChatHeads ? <CloseOutlined style={{fontSize: 24}} /> : <MessageOutlined style={{fontSize: 24}} />}
-            onClick={() => setShowChatHeads(!showChatHeads)}
-          />
+          {/* Nút Toggle Chat Tổng */}
+          <Badge count={totalUnread} overflowCount={99}>
+            <Button 
+                type="primary" 
+                shape="circle" 
+                size="large" 
+                style={{ width: 60, height: 60, boxShadow: '0 6px 16px rgba(24, 144, 255, 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                icon={showChatHeads ? <CloseOutlined style={{fontSize: 24}} /> : <MessageOutlined style={{fontSize: 24}} />}
+                onClick={() => setShowChatHeads(!showChatHeads)}
+            />
+          </Badge>
       </div>
 
-      {/* Khung Chat Mini */}
+      {/* --- MINI CHAT WINDOW --- */}
       {activeChatId && (
           <div style={{
               position: 'fixed', right: 100, bottom: 24, 
@@ -310,59 +416,6 @@ const MainLayout: React.FC = () => {
               </div>
           </div>
       )}
-
-      {/* --- LAYOUT CHÍNH --- */}
-      <Sider collapsible collapsed={collapsed} onCollapse={setCollapsed} width={260} theme="light" breakpoint="lg" collapsedWidth="80" 
-        style={{ boxShadow: '2px 0 8px rgba(0,0,0,0.05)', zIndex: 100, height: '100vh', position: 'fixed', left: 0, top: 0 }}>
-        <div style={{ height: 64, display: 'flex', alignItems: 'center', justifyContent: 'center', borderBottom: '1px solid #f0f0f0' }}>
-            {collapsed ? <h2 style={{ color: '#1890ff', margin: 0, fontWeight: 800, fontSize: '20px' }}>LSB</h2> : <h2 style={{ color: '#1890ff', margin: 0, fontWeight: 800, fontSize: '20px' }}>Todo-List</h2>}
-        </div>
-        
-        <Menu mode="inline" selectedKeys={[location.pathname]} style={{ borderRight: 0, padding: '16px 8px' }} items={[
-            { key: '/dashboard', icon: <DashboardOutlined />, label: 'Tổng quan & Task', onClick: () => navigate('/dashboard') },
-            { key: '/groups', icon: <TeamOutlined />, label: 'Nhóm làm việc', onClick: () => navigate('/groups') },
-            { type: 'divider' },
-            { key: 'settings', icon: <SettingOutlined />, label: 'Cài đặt', disabled: true },
-        ]} />
-      </Sider>
-
-      <Layout>
-        <div style={{ marginLeft: collapsed ? 80 : 260, transition: 'margin-left 0.2s', minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-            
-            <Header style={{ padding: '0 24px', background: 'rgba(255, 255, 255, 0.8)', backdropFilter: 'blur(8px)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', position: 'sticky', top: 0, zIndex: 99 }}>
-                <span style={{ fontWeight: 600, fontSize: 18, color: '#333' }}>
-                    {location.pathname.includes('/dashboard') ? 'Quản lý công việc' : 'Nhóm làm việc'}
-                </span>
-                
-                <div style={{ display: 'flex', alignItems: 'center', gap: 20 }}>
-                    <Popover content={notificationContent} title="Thông báo quá hạn" trigger="click" placement="bottomRight">
-                        <Badge count={notificationsList.length} overflowCount={99}>
-                            <BellOutlined style={{ fontSize: 22, cursor: 'pointer', color: '#64748b' }} />
-                        </Badge>
-                    </Popover>
-                    
-                    <Dropdown menu={{ items: userMenuItems }} placement="bottomRight" arrow>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10, cursor: 'pointer' }}>
-                            <span style={{ fontWeight: 500 }}>{username}</span>
-                            <Avatar style={{ backgroundColor: '#1890ff' }} icon={<UserOutlined />} />
-                        </div>
-                    </Dropdown>
-                </div>
-            </Header>
-
-            <Content style={{ margin: '24px', flex: 1 }}>
-                <div style={{ maxWidth: 1200, margin: '0 auto', width: '100%' }}>
-                    <div className="site-layout-content">
-                         <Outlet />
-                    </div>
-                </div>
-            </Content>
-
-            <div style={{ textAlign: 'center', padding: '20px', color: '#aaa', fontSize: '12px' }}>
-                ©2025 Inventory App System
-            </div>
-        </div>
-      </Layout>
 
       {/* Modal Profile */}
       <Modal title="Thông tin cá nhân" open={isProfileOpen} onCancel={() => setIsProfileOpen(false)} footer={[<Button key="close" type="primary" onClick={() => setIsProfileOpen(false)}>Đóng</Button>]} centered width={400}>

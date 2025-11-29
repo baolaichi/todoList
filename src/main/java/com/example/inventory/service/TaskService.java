@@ -10,10 +10,10 @@ import java.util.List;
 public interface TaskService {
     public Task createTask(TaskDTO taskDTO, String username);
     public void deleteTask(Long id);
-    public List<ShowTask> listTask(Long user);
+    public List<TaskDTO> listTask(Long user);
     Task updatePersonalTask(Long taskId, TaskDTO taskDTO, String username);
     Task statusTask(Long taskId, String username, Status newStatus);
-    public List<ShowTask> filterTasksByDeadline(String filterType, String username);
-    List<ShowTask> getAllTasksForUser(String username);
+    public List<TaskDTO> filterTasksByDeadline(String filterType, String username);
+    List<TaskDTO> getAllTasksForUser(String username);
     TaskDTO getTaskDetail(Long taskId, String username);
 }

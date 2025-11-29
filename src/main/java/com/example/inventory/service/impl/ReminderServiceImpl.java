@@ -1,119 +1,156 @@
 package com.example.inventory.service.impl;
 
 import com.example.inventory.model.Task;
+import com.example.inventory.model.TaskGroup;
+import com.example.inventory.model.Users;
 import com.example.inventory.model.entityEnum.Status;
+import com.example.inventory.repository.TaskGroupRepository;
 import com.example.inventory.repository.TaskRepository;
 import com.example.inventory.service.EmailService;
 import com.example.inventory.service.ReminderService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Service
 public class ReminderServiceImpl implements ReminderService {
-    private final TaskRepository taskRepository;
-    private final EmailService emailService;
+    @Autowired
+    private TaskRepository taskRepository;
 
-    public ReminderServiceImpl(TaskRepository taskRepository, EmailService emailService) {
-        this.taskRepository = taskRepository;
-        this.emailService = emailService;
-    }
+    @Autowired
+    private EmailService emailService;
+    @Autowired
+    private TaskGroupRepository taskGroupRepository;
 
+    // --- 1. CHẠY NGẦM (GỬI EMAIL) ---
     @Override
     @Scheduled(cron = "0 * * * * *") // Chạy mỗi phút
-    // @Transactional -> KHÔNG NÊN để @Transactional ở cấp độ hàm lớn này
-    // Vì nếu 1 task lỗi, nó có thể rollback toàn bộ các task khác.
+    @Transactional
     public void scanForDeadlines() {
-        System.out.println("---- Bắt đầu quét Deadline ----");
         LocalDateTime now = LocalDateTime.now();
 
-        // 1. Lấy danh sách tất cả task đến hạn của TẤT CẢ mọi người
+        // ----------------------------------------
+        // A. XỬ LÝ TASK CÁ NHÂN
+        // ----------------------------------------
         List<Task> dueTasks = taskRepository.findByStatusNotAndDeadlineBeforeAndIsRemindFalse(
                 Status.DONE,
                 now
         );
 
-        if (dueTasks.isEmpty()) return;
-
-        System.out.println("Tìm thấy " + dueTasks.size() + " task cần nhắc nhở.");
-
-        // 2. Duyệt từng task để xử lý
-        for (Task task : dueTasks) {
+        List<Task> safeTaskList = new ArrayList<>(dueTasks);
+        for (Task task : safeTaskList) {
             try {
-                // --- LOGIC XỬ LÝ RIÊNG BIỆT CHO TỪNG TASK ---
+                // Task cá nhân dùng .getUser()
+                sendNotification(task.getUser(), task.getTitle(), task.getDeadline().toString());
 
-                // a. Gửi thông báo (Email sẽ lấy từ task -> user -> email)
-                // Nên task của ai thì mail gửi về đúng người đó.
-                sendNotification(task);
-
-                // b. Đánh dấu đã nhắc
-                task.setIsRemind(true); // Hoặc setRemind(true) tuỳ getter/setter của bạn
-
-                // c. Lưu ngay lập tức (Save từng cái)
+                task.setIsRemind(true);
                 taskRepository.save(task);
-
             } catch (Exception e) {
-                // Nếu task này bị lỗi (ví dụ mail sai, db lỗi), in log và BỎ QUA
-                // Để vòng lặp tiếp tục chạy sang task tiếp theo
-                System.err.println("Lỗi xử lý task ID " + task.getId() + ": " + e.getMessage());
+                System.err.println("Lỗi task cá nhân ID " + task.getId() + ": " + e.getMessage());
+            }
+        }
+
+        // ----------------------------------------
+        // B. XỬ LÝ TASK NHÓM (TaskGroup)
+        // ----------------------------------------
+        List<TaskGroup> dueGroupTasks = taskGroupRepository.findByStatusNotAndDeadlineBeforeAndIsRemindFalse(
+                Status.DONE,
+                now
+        );
+
+        List<TaskGroup> safeGroupTaskList = new ArrayList<>(dueGroupTasks);
+        for (TaskGroup groupTask : safeGroupTaskList) {
+            try {
+                // Gửi cho tất cả người được giao
+                for (Users assignee : groupTask.getAssignees()) {
+                    sendNotification(assignee, "[Nhóm] " + groupTask.getTitle(), groupTask.getDeadline().toString());
+                }
+
+                // Gửi cho người tạo (Nếu cần) - SỬA LỖI Ở ĐÂY: dùng getCreatedBy() thay vì getUser()
+                if (groupTask.getCreatedBy() != null) {
+                    sendNotification(groupTask.getCreatedBy(), "[Nhóm-Admin] " + groupTask.getTitle(), groupTask.getDeadline().toString());
+                }
+
+                groupTask.setIsRemind(true);
+                taskGroupRepository.save(groupTask);
+            } catch (Exception e) {
+                System.err.println("Lỗi task nhóm ID " + groupTask.getId() + ": " + e.getMessage());
             }
         }
     }
 
-    private void sendNotification(Task task) {
-        // Cách 1: Gửi Email (Backend làm được ngay)
-        String emailUser = task.getUser().getEmail();
+    // Hàm gửi mail chung
+    private void sendNotification(Users user, String title, String deadline) {
+        if (user == null || user.getEmail() == null) return;
+
         String subject = "⏰ THÔNG BÁO: Đã đến hạn deadline!";
-        String body = "Task '" + task.getTitle() + "' đã đến hạn vào lúc " + task.getDeadline() + ". Hãy hoàn thành ngay!";
+        String body = "Công việc '" + title + "' đã đến hạn vào lúc " + deadline + ". Hãy kiểm tra và hoàn thành ngay!";
 
         try {
-            emailService.sendEmail(emailUser, subject, body);
-            System.out.println(">>> Đã gửi mail nhắc nhở cho task: " + task.getTitle());
+            emailService.sendEmail(user.getEmail(), subject, body);
+            System.out.println(">>> Đã gửi mail: " + title + " -> " + user.getEmail());
         } catch (Exception e) {
-            System.out.println(">>> Lỗi gửi mail: " + e.getMessage());
+            System.err.println(">>> Lỗi gửi mail: " + e.getMessage());
         }
-
-        // Cách 2 (Giả lập nhạc): Backend chỉ có thể in ra log console
-        // Để có nhạc thật, Frontend (React/Web) phải gọi API kiểm tra hoặc dùng WebSocket
-        System.out.println("♫ ♫ ♫ BEEP BEEP! Task ID " + task.getId() + " Overdue! ♫ ♫ ♫");
     }
 
+    // --- 2. API CHO FRONTEND (HIỆN POPUP/NHẠC) ---
 
     @Override
-    public List<Task> getOverdueAlerts(String username) {
-        // Lấy thời gian hiện tại
+    public List<Object> getOverdueAlerts(String username) {
         LocalDateTime now = LocalDateTime.now();
+        List<Object> alerts = new ArrayList<>();
 
-        // Gọi Repository để tìm các task:
-        // - Của User này
-        // - Deadline nhỏ hơn hiện tại (Đã quá hạn)
-        // - Trạng thái KHÁC DONE (Chưa làm xong)
-        // - Chưa tắt thông báo (isAlertDismissed = false)
-        return taskRepository.findByUser_UsernameAndDeadlineBeforeAndStatusNotAndIsAlertDismissedFalse(
-                username,
-                now,
-                Status.DONE
+        // Task cá nhân
+        List<Task> personalTasks = taskRepository.findByUser_UsernameAndStatusNotAndDeadlineBeforeAndIsAlertDismissedFalse(
+                username, Status.DONE, now
         );
+        alerts.addAll(personalTasks);
+
+        // Task nhóm
+        List<TaskGroup> groupTasks = taskGroupRepository.findByAssignees_UsernameAndStatusNotAndDeadlineBeforeAndIsAlertDismissedFalse(
+                username, Status.DONE, now
+        );
+        alerts.addAll(groupTasks);
+
+        return alerts;
     }
+
 
     @Override
     public void dismissTaskAlert(Long taskId, String username) {
-        // 1. Tìm Task
+        // Tắt thông báo Task Cá nhân
         Task task = taskRepository.findById(taskId)
-                .orElseThrow(() -> new RuntimeException("Không tìm thấy Task ID: " + taskId));
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy Task Cá nhân ID: " + taskId));
 
-        // 2. Kiểm tra quyền sở hữu (Bảo mật)
-        // Tránh trường hợp user A tắt thông báo của user B
         if (!task.getUser().getUsername().equals(username)) {
-            throw new RuntimeException("Bạn không có quyền tắt thông báo của task này!");
+            throw new RuntimeException("Bạn không có quyền!");
         }
 
-        // 3. Đánh dấu đã tắt thông báo (Flag = true)
         task.setIsAlertDismissed(true);
-
-        // 4. Lưu lại vào DB
         taskRepository.save(task);
     }
+
+    public void dismissGroupTaskAlert(Long taskGroupId, String username) {
+        TaskGroup taskGroup = taskGroupRepository.findById(taskGroupId)
+                .orElseThrow(() -> new RuntimeException("Không tìm thấy Task Group ID: " + taskGroupId));
+
+        // Check quyền: Người tạo (createdBy) HOẶC Người được giao (assignees)
+        boolean isOwner = taskGroup.getCreatedBy().getUsername().equals(username); // <-- SỬA getUser() THÀNH getCreatedBy()
+        boolean isAssignee = taskGroup.getAssignees().stream().anyMatch(u -> u.getUsername().equals(username));
+
+        if (!isOwner && !isAssignee) {
+            throw new RuntimeException("Bạn không có quyền tắt thông báo này!");
+        }
+
+        taskGroup.setIsAlertDismissed(true);
+        taskGroupRepository.save(taskGroup);
+    }
+
+
 }

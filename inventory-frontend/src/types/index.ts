@@ -24,8 +24,24 @@ export interface Task {
   updatedAt?: string; 
   status: TaskStatus;
   priority: Priority;
-  userId: number;
+  userId: number; // Người tạo (Owner)
   groupId?: number;
+
+  // Mảng chứa danh sách người được giao việc
+  assignees?: {
+      userId: number;
+      username: string;
+  }[];
+}
+
+// --- WORK LOG (Mới) ---
+export interface WorkLog {
+    id: number;
+    content: string;
+    createdAt: string;
+    reporterName: string; // Tên người báo cáo
+    taskTitle?: string;   // Tên task (dùng cho báo cáo tổng hợp)
+    taskId?: number;
 }
 
 // --- GROUP ---

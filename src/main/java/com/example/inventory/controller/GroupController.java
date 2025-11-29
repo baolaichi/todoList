@@ -7,6 +7,8 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.Map;
+
 @RestController
 @RequestMapping("/api/user/groups") // Đổi thành số nhiều 'groups' cho chuẩn
 public class GroupController {
@@ -69,19 +71,25 @@ public class GroupController {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         try {
             return ResponseEntity.ok(groupService.createTaskInGroup(dto, username));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            // IN LỖI RA CONSOLE ĐỂ DEBUG
+            e.printStackTrace();
+            String errorMsg = e.getMessage() != null ? e.getMessage() : "Lỗi hệ thống (NullPointer): " + e.getClass().getName();
+            return ResponseEntity.badRequest().body(errorMsg);
         }
     }
 
     // 8. Cập nhật task nhóm
     @PutMapping("/tasks/{taskId}")
-    public ResponseEntity<?> updateTaskInGroup(@PathVariable Long taskId, @RequestBody TaskDTO dto) {
+    public ResponseEntity<?> updateTaskInGroup(@PathVariable Long taskId, @RequestBody TaskGroupDTO dto) {
         String username = SecurityContextHolder.getContext().getAuthentication().getName();
         try {
             return ResponseEntity.ok(groupService.updateTaskInGroup(taskId, dto, username));
-        } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+        } catch (Exception e) {
+            // IN LỖI RA CONSOLE ĐỂ DEBUG
+            e.printStackTrace();
+            String errorMsg = e.getMessage() != null ? e.getMessage() : "Lỗi hệ thống (NullPointer): " + e.getClass().getName();
+            return ResponseEntity.badRequest().body(errorMsg);
         }
     }
 
@@ -95,5 +103,46 @@ public class GroupController {
         } catch (RuntimeException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
         }
+    }
+
+    @PostMapping("/tasks/{taskId}/report")
+    public ResponseEntity<?> createWorkLog(@PathVariable Long taskId, @RequestBody Map<String, String> body) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        String content = body.get("content");
+        try {
+            groupService.createWorkLog(taskId, content, username);
+            return ResponseEntity.ok("Đã gửi báo cáo");
+        } catch (RuntimeException e) {
+            return ResponseEntity.badRequest().body(e.getMessage());
+        }
+    }
+
+    // API lấy lịch sử báo cáo (Giữ nguyên URL này vì Frontend đang gọi đúng)
+    @GetMapping("/tasks/{taskId}/work-logs")
+    public ResponseEntity<?> getWorkLogs(@PathVariable Long taskId) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        // Thêm username vào hàm getWorkLogs để kiểm tra quyền xem
+        return ResponseEntity.ok(groupService.getWorkLogs(taskId, username));
+    }
+
+    @GetMapping("/{groupId}/daily-reports")
+    public ResponseEntity<?> getDailyReports(@PathVariable Long groupId) {
+        return ResponseEntity.ok(groupService.getDailyReports(groupId));
+    }
+
+    // API Tắt thông báo cho Task Nhóm (Dùng cho nút Đã hiểu bên Frontend)
+    @PatchMapping("/tasks/{taskId}/dismiss")
+    public ResponseEntity<?> dismissGroupAlert(@PathVariable Long taskId) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        // Bạn cần inject ReminderService và gọi hàm dismissGroupTaskAlert(taskId, username) ở đây
+        // Tạm thời trả về OK để ko lỗi 404 nếu chưa implement service
+        return ResponseEntity.ok("Đã tắt thông báo");
+    }
+
+    @GetMapping("/tasks/{taskId}")
+    public ResponseEntity<?> getTaskGroupDetail(@PathVariable Long taskId) {
+        String username = SecurityContextHolder.getContext().getAuthentication().getName();
+        // Gọi hàm getTaskGroupDetail mà bạn đã viết trong Service
+        return ResponseEntity.ok(groupService.getTaskGroupDetail(taskId, username));
     }
 }

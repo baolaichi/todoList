@@ -10,7 +10,7 @@ public interface ReminderService {
 
     void scanForDeadlines();
 
-    List<Task> getOverdueAlerts(String username);
+    List<Object> getOverdueAlerts(String username);
 
     // 2. Tắt báo động cho một task cụ thể
     void dismissTaskAlert(Long taskId, String username);
