@@ -8,7 +8,7 @@ import {
   SendOutlined, UserAddOutlined, PlusOutlined, EyeOutlined, CheckCircleOutlined, 
   EditOutlined, DeleteOutlined, FolderOutlined, FileTextOutlined, UploadOutlined, 
   HomeOutlined, ArrowUpOutlined, FileImageOutlined, FilePdfOutlined, DownloadOutlined,
-  ExclamationCircleOutlined, FormOutlined
+  FormOutlined
 } from '@ant-design/icons';
 import axiosClient from '../api/axiosClient';
 import type { ChatMessage, GroupMember, Task, WorkLog } from '../types';
@@ -16,31 +16,33 @@ import SockJS from 'sockjs-client';
 import Stomp from 'stompjs';
 import dayjs from 'dayjs';
 
-// URL Backend để xem file/socket
-const API_BASE_URL = 'http://localhost:8080';
+// QUAN TRỌNG: Để rỗng để tự động theo domain khi deploy (qua Nginx)
+// Nếu chạy local dev thì axiosClient đã có baseURL rồi, nhưng fetch/socket cần cái này.
+// Khi deploy, Nginx sẽ lo phần /api và /ws
+const API_BASE_URL = ''; 
 
 const GroupDetail: React.FC = () => {
   const { id } = useParams(); 
   const myUsername = localStorage.getItem('username');
   const [messageApi, contextHolder] = message.useMessage();
   
-  // --- STATE DỮ LIỆU CHUNG ---
+  // --- STATE DỮ LIỆU ---
   const [groupInfo, setGroupInfo] = useState<any>(null);
   const [members, setMembers] = useState<GroupMember[]>([]);
   
-  // --- STATE CHAT ---
+  // Chat
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputMsg, setInputMsg] = useState('');
   const stompClientRef = useRef<any>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // --- STATE TASK (CÔNG VIỆC) ---
+  // Task
   const [groupTasks, setGroupTasks] = useState<Task[]>([]);
   const [isTaskModalOpen, setIsTaskModalOpen] = useState(false);
   const [editingTask, setEditingTask] = useState<Task | null>(null);
   const [taskForm] = Form.useForm();
   
-  // --- STATE CHI TIẾT TASK & BÁO CÁO ---
+  // Chi tiết Task & Báo cáo
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [viewTask, setViewTask] = useState<Task | null>(null);
   const [dailyReports, setDailyReports] = useState<WorkLog[]>([]);
@@ -48,32 +50,29 @@ const GroupDetail: React.FC = () => {
   const [reportContent, setReportContent] = useState('');
   const [reportTaskId, setReportTaskId] = useState<number | null>(null);
   const [reportLoading, setReportLoading] = useState(false);
-  const [taskLogs, setTaskLogs] = useState<WorkLog[]>([]); // Log của 1 task cụ thể
+  const [taskLogs, setTaskLogs] = useState<WorkLog[]>([]); 
 
-  // --- STATE TÀI LIỆU (FOLDER/FILE) ---
+  // Tài liệu
   const [currentFolderId, setCurrentFolderId] = useState<number | null>(null);
   const [folderContent, setFolderContent] = useState<any>({ subFolders: [], files: [] });
   const [isCreateFolderOpen, setIsCreateFolderOpen] = useState(false);
   const [folderForm] = Form.useForm();
   const [previewFile, setPreviewFile] = useState<{ url: string, type: string, name: string } | null>(null);
 
-  // --- STATE MEMBER ---
+  // Member
   const [isAddMemberOpen, setIsAddMemberOpen] = useState(false);
 
-  // --- HELPER CHECK QUYỀN ---
+  // --- HELPER ---
   const getMyUserId = () => members.find(m => m.username === myUsername)?.userId;
   const isLeader = () => groupInfo?.myRole === 'LEADER';
   
-  // Quyền sửa: Leader HOẶC người nằm trong danh sách được giao
   const canEditTask = (task: Task) => {
       if (isLeader()) return true;
-      // Kiểm tra cả mảng assignees (nếu có) và userId (owner)
       const isAssigned = task.assignees?.some((a: any) => a.username === myUsername);
       return isAssigned || task.userId === getMyUserId();
   };
   const canDeleteTask = () => isLeader();
 
-  // Hàm thêm tin nhắn an toàn (Lọc trùng ID)
   const addMessageToState = (newMessage: ChatMessage) => {
     setMessages((prev) => {
         const exists = prev.some(m => m.id === newMessage.id);
@@ -82,7 +81,7 @@ const GroupDetail: React.FC = () => {
     });
   };
 
-  // --- 1. INIT DATA ---
+  // --- 1. INIT ---
   useEffect(() => {
     if (!id) return;
 
@@ -90,16 +89,18 @@ const GroupDetail: React.FC = () => {
     loadMembers();
     loadGroupTasks();
     loadFolderContent(null); 
-    loadDailyReports(); 
+    loadDailyReports();
 
     axiosClient.get(`/chat/history/${id}`).then(res => {
       setMessages(res.data);
       setTimeout(scrollToBottom, 100);
     });
 
+    // WebSocket: Dùng đường dẫn tương đối '/ws' để Nginx xử lý
     const socket = new SockJS('/ws');
     const client = Stomp.over(socket);
-    client.debug = null; 
+    client.debug = () => {}; // Tắt log debug rác
+    
     const token = localStorage.getItem('token');
     
     client.connect({ 'Authorization': `Bearer ${token}` }, () => {
@@ -128,7 +129,7 @@ const GroupDetail: React.FC = () => {
       } catch (e) {}
   };
 
-  // --- FOLDER LOGIC ---
+  // --- FILE MANAGER ---
   const loadFolderContent = async (folderId: number | null) => {
       try {
           const res = await axiosClient.get(`/user/groups/${id}/folders`, { params: { folderId } });
@@ -147,6 +148,7 @@ const GroupDetail: React.FC = () => {
       } catch (e) { messageApi.error("Lỗi tạo thư mục"); }
   };
 
+  // UPLOAD FILE (Fix lỗi 403/CORS khi deploy)
   const handleUploadFile = async (options: any) => {
       if (!currentFolderId) {
           messageApi.warning("Vui lòng vào một thư mục để upload!"); return;
@@ -155,17 +157,23 @@ const GroupDetail: React.FC = () => {
       const formData = new FormData();
       formData.append('file', file);
       const token = localStorage.getItem('token');
+
       try {
-          const response = await fetch(`${API_BASE_URL}/api/user/groups/${id}/folders/${currentFolderId}/files`, {
+          // Dùng đường dẫn tương đối /api/... để đi qua Nginx
+          const response = await fetch(`/api/user/groups/${id}/folders/${currentFolderId}/files`, {
               method: 'POST',
               headers: { 'Authorization': `Bearer ${token}` },
               body: formData
           });
+
           if (!response.ok) throw new Error('Upload thất bại');
           messageApi.success("Upload thành công");
           if (onSuccess) onSuccess("Ok");
           loadFolderContent(currentFolderId);
-      } catch (e: any) { messageApi.error("Lỗi upload file"); if (onError) onError(e); }
+      } catch (e: any) { 
+          messageApi.error("Lỗi upload file"); 
+          if (onError) onError(e); 
+      }
   };
 
   const handleDeleteFolder = async (folderId: number) => {
@@ -185,7 +193,9 @@ const GroupDetail: React.FC = () => {
   };
 
   const handleViewFile = (file: any) => {
-      const fullUrl = `${API_BASE_URL}${file.url}`;
+      // Xử lý đường dẫn ảnh: Nginx phục vụ tại /uploads/
+      // Nếu file.url đã bắt đầu bằng /uploads thì giữ nguyên (tương đối)
+      const fullUrl = file.url; 
       if (file.type?.includes('image')) setPreviewFile({ url: fullUrl, type: 'image', name: file.name });
       else if (file.type?.includes('pdf')) setPreviewFile({ url: fullUrl, type: 'pdf', name: file.name });
       else window.open(fullUrl, '_blank');
@@ -300,21 +310,16 @@ const GroupDetail: React.FC = () => {
       finally { setReportLoading(false); }
   };
 
-const openDetailModal = async (taskId: number) => {
+  const openDetailModal = async (taskId: number) => {
     try {
-        // SỬA ĐƯỜNG DẪN: Gọi API của Group (/user/groups/tasks/...) thay vì Personal (/user/tasks/detail/...)
+        // Gọi API Task Nhóm
         const res = await axiosClient.get(`/user/groups/tasks/${taskId}`);
-        
-        // Log để kiểm tra xem có assignees chưa
-        console.log("Chi tiết Task Nhóm:", res.data); 
-        
         setViewTask(res.data);
         loadTaskLogs(taskId);
         setIsDetailOpen(true);
-    } catch (e) { 
-        messageApi.error("Không thể xem chi tiết task này"); 
-    }
+    } catch (e) { messageApi.error("Không thể xem chi tiết"); }
   };
+
   const handleAddMember = async (values: any) => {
       try {
           await axiosClient.post(`/user/groups/${id}/members`, { emailOrUsername: values.username });
@@ -324,7 +329,7 @@ const openDetailModal = async (taskId: number) => {
       } catch (e: any) { messageApi.error(e.response?.data || "Lỗi mời thành viên"); }
   };
 
-  // --- TABLE CONFIG ---
+  // --- UI RENDER ---
   const taskColumns = [
     { title: 'Công việc', dataIndex: 'title', render: (t: string) => <b>{t}</b> },
     { title: 'Người làm', dataIndex: 'assignees', render: (assignees: any[]) => (
@@ -344,11 +349,7 @@ const openDetailModal = async (taskId: number) => {
             <div style={{display: 'flex', gap: 4}}>
                 <Button size="small" icon={<EyeOutlined />} onClick={() => openDetailModal(record.id)} />
                 {canEditTask(record) && <Button size="small" icon={<EditOutlined style={{color:'#1890ff'}}/>} onClick={() => openEditTaskModal(record)} />}
-                {canDeleteTask() && (
-                    <Popconfirm title="Xóa?" onConfirm={() => handleDeleteTask(record.id)}>
-                        <Button size="small" danger icon={<DeleteOutlined />} />
-                    </Popconfirm>
-                )}
+                {canDeleteTask() && <Popconfirm title="Xóa?" onConfirm={() => handleDeleteTask(record.id)}><Button size="small" danger icon={<DeleteOutlined />} /></Popconfirm>}
             </div>
         )
     }
@@ -382,9 +383,7 @@ const openDetailModal = async (taskId: number) => {
                 </div>
                 {currentFolderId && <div onClick={() => loadFolderContent(folderContent.parentFolderId)} style={{cursor: 'pointer', padding: '5px', color: '#1890ff', fontSize: 12}}><ArrowUpOutlined /> Lên cấp trên</div>}
                 <div style={{flex: 1, overflowY: 'auto'}}>
-                    {[...folderContent.subFolders, ...folderContent.files].length === 0 ? (
-                        <Empty description="Trống" image={Empty.PRESENTED_IMAGE_SIMPLE} />
-                    ) : (
+                    {[...folderContent.subFolders, ...folderContent.files].length === 0 ? <Empty description="Trống" image={Empty.PRESENTED_IMAGE_SIMPLE} /> : (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                             {folderContent.subFolders.map((item: any) => (
                                 <div key={'folder_' + item.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px', borderRadius: 8, cursor: 'pointer', backgroundColor: '#f9f9f9', border: '1px solid #eee' }} onClick={() => loadFolderContent(item.id)}>
@@ -463,15 +462,15 @@ const openDetailModal = async (taskId: number) => {
       </Card>
 
       <Row gutter={[16, 16]} style={{ flex: 1, minHeight: 0 }}>
-        {/* --- CỘT TABS (Trái) - 75% --- */}
-        <Col xs={24} lg={18} style={{ height: '100%' }}>
+        {/* CỘT TABS CHỨC NĂNG (Trái - To) */}
+        <Col xs={24} lg={17} style={{ height: '100%' }}>
             <Card style={{ height: '100%' }} styles={{ body: { padding: 0, height: '100%' } }}>
                 <Tabs defaultActiveKey="1" type="card" style={{height: '100%'}} items={tabItems} />
             </Card>
         </Col>
 
-        {/* --- CỘT CHAT (Phải) - 25% --- */}
-        <Col xs={24} lg={6} style={{ height: '100%' }}>
+        {/* CỘT CHAT (Phải - Nhỏ) */}
+        <Col xs={24} lg={7} style={{ height: '100%' }}>
           <Card title="Thảo luận nhóm" style={{ height: '100%', display: 'flex', flexDirection: 'column' }} styles={{ body: { flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column', padding: 16 } }}>
             <div style={{ flex: 1, overflowY: 'auto', paddingRight: 10, marginBottom: 10 }}>
               {messages.length === 0 && <Empty description="Chưa có tin nhắn" image={Empty.PRESENTED_IMAGE_SIMPLE} />}
@@ -499,8 +498,6 @@ const openDetailModal = async (taskId: number) => {
           <Form form={taskForm} onFinish={handleSaveTask} layout="vertical">
               <Form.Item name="title" label="Tiêu đề" rules={[{required: true}]}><Input /></Form.Item>
               <Form.Item name="description" label="Mô tả"><Input.TextArea rows={2} /></Form.Item>
-              {/* Luôn hiện Status */}
-              <Form.Item name="status" label="Trạng thái" initialValue="TODO"><Select><Select.Option value="TODO">Chưa làm</Select.Option><Select.Option value="IN_PROGRESS">Đang làm</Select.Option><Select.Option value="DONE">Hoàn thành</Select.Option></Select></Form.Item>
               <Form.Item name="assigneeIds" label="Giao cho (Chọn nhiều)" rules={[{required: true}]}>
                   <Select mode="multiple" placeholder="Chọn thành viên" disabled={!isLeader()}>{members.map(m => (<Select.Option key={m.userId} value={m.userId}>{m.username} ({m.email})</Select.Option>))}</Select>
               </Form.Item>
@@ -508,6 +505,7 @@ const openDetailModal = async (taskId: number) => {
                   <Form.Item name="deadline" label="Hạn chót" style={{flex:1}}><DatePicker showTime style={{width: '100%'}} /></Form.Item>
                   <Form.Item name="priority" label="Ưu tiên" style={{flex:1}} initialValue="MEDIUM"><Select><Select.Option value="HIGH">Cao</Select.Option><Select.Option value="MEDIUM">TB</Select.Option><Select.Option value="LOW">Thấp</Select.Option></Select></Form.Item>
               </div>
+              <Form.Item name="status" label="Trạng thái" initialValue="TODO"><Select><Select.Option value="TODO">Chưa làm</Select.Option><Select.Option value="IN_PROGRESS">Đang làm</Select.Option><Select.Option value="DONE">Hoàn thành</Select.Option></Select></Form.Item>
               <Button type="primary" htmlType="submit" block>{editingTask ? "Lưu thay đổi" : "Giao việc"}</Button>
           </Form>
       </Modal>
