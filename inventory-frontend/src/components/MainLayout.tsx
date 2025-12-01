@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { Layout, Menu, Avatar, Dropdown, Badge, notification, Popover, List, Typography, Empty, Modal, Button, Descriptions, Input, Tooltip } from 'antd';
+import { Layout, Menu, Avatar, Dropdown, Badge, notification, Popover, Typography, Empty, Modal, Button, Descriptions, Input, Tooltip } from 'antd';
 import {
   UserOutlined,
   TeamOutlined,
@@ -25,9 +25,11 @@ import dayjs from 'dayjs';
 const { Header, Content, Sider } = Layout;
 const { Text, Title } = Typography;
 
+
 const MainLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+
   const username = localStorage.getItem('username');
 
   // --- STATE GIAO DIỆN ---
@@ -35,6 +37,7 @@ const MainLayout: React.FC = () => {
   const [api, contextHolder] = notification.useNotification();
   const [notificationsList, setNotificationsList] = useState<any[]>([]);
   
+  const [role, setRole] = useState('');
   // State Profile
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [userProfile, setUserProfile] = useState<any>(null);
@@ -57,6 +60,15 @@ const MainLayout: React.FC = () => {
   useEffect(() => {
       activeChatIdRef.current = activeChatId;
   }, [activeChatId]);
+
+  useEffect(() => {
+      // Lấy thông tin user để check role
+      axiosClient.get('/user/profile').then(res => {
+          setUserProfile(res.data);
+          setRole(res.data.role); // Lưu role
+      }).catch(() => {});
+      // ...
+  }, []);
 
   // --- 1. CHECK TOKEN & INIT DATA ---
   useEffect(() => {
@@ -100,7 +112,7 @@ const MainLayout: React.FC = () => {
   const connectGlobalSocket = (groups: Group[]) => {
     const socket = new SockJS('http://localhost:8080/ws');
     const client = Stomp.over(socket);
-    client.debug = null; 
+    client.debug = () => {};
     const token = localStorage.getItem('token');
 
     client.connect({ 'Authorization': `Bearer ${token}` }, () => {
@@ -268,10 +280,19 @@ const MainLayout: React.FC = () => {
           selectedKeys={[location.pathname]}
           style={{ borderRight: 0, padding: '16px 8px' }}
           items={[
-            { key: '/dashboard', icon: <DashboardOutlined />, label: 'Tổng quan & Task', onClick: () => navigate('/dashboard') },
+            { key: '/dashboard', icon: <DashboardOutlined />, label: 'Tổng quan', onClick: () => navigate('/dashboard') },
             { key: '/groups', icon: <TeamOutlined />, label: 'Nhóm làm việc', onClick: () => navigate('/groups') },
+            
+            // --- THÊM MỤC ADMIN ---
+            ...(role === 'ADMIN' ? [{
+                key: '/admin',
+                icon: <SettingOutlined />, 
+                label: 'Quản trị hệ thống',
+                onClick: () => navigate('/admin')
+            }] : []),
+            
             { type: 'divider' },
-            { key: 'settings', icon: <SettingOutlined />, label: 'Cài đặt', disabled: true },
+            // ...
           ]}
         />
       </Sider>

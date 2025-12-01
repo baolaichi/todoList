@@ -279,6 +279,9 @@ public class GroupServiceImpl implements GroupService {
         if (!isLeader(taskGroup.getGroup().getId(), requesterUsername)) {
             throw new RuntimeException("Chỉ Trưởng nhóm mới được xóa công việc!");
         }
+
+        workLogRepository.deleteByTaskGroup_Id(taskId);
+
         taskGroupRepository.delete(taskGroup);
     }
 

@@ -4,6 +4,8 @@ import com.example.inventory.model.entityEnum.Priority;
 import com.example.inventory.model.entityEnum.Status;
 import jakarta.persistence.*;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
+import lombok.ToString;
 
 import java.time.LocalDateTime;
 import java.util.HashSet;
@@ -32,11 +34,15 @@ public class TaskGroup {
     // Liên kết với Nhóm (Bắt buộc)
     @ManyToOne
     @JoinColumn(name = "group_id", nullable = false)
+    @ToString.Exclude           // <--- THÊM
+    @EqualsAndHashCode.Exclude
     private GroupTodo group;
 
     // Người tạo task (Leader hoặc member tạo)
     @ManyToOne
     @JoinColumn(name = "created_by")
+    @ToString.Exclude           // <--- QUAN TRỌNG NHẤT
+    @EqualsAndHashCode.Exclude
     private Users createdBy;
 
     // Danh sách người được giao việc (Quan hệ nhiều-nhiều)

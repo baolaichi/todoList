@@ -2,6 +2,7 @@ package com.example.inventory.repository;
 
 import com.example.inventory.model.WorkLog;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import java.time.LocalDateTime;
@@ -22,4 +23,8 @@ public interface WorkLogRepository extends JpaRepository<WorkLog, Long> {
             @Param("start") LocalDateTime start,
             @Param("end") LocalDateTime end
     );
+
+    @Modifying // Bắt buộc có để báo hiệu đây là lệnh Delete/Update
+    @Query("DELETE FROM WorkLog w WHERE w.taskGroup.id = :taskGroupId")
+    void deleteByTaskGroup_Id(@Param("taskGroupId") Long taskGroupId);
 }

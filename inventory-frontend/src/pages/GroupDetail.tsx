@@ -97,7 +97,7 @@ const GroupDetail: React.FC = () => {
       setTimeout(scrollToBottom, 100);
     });
 
-    const socket = new SockJS(`${API_BASE_URL}/ws`);
+    const socket = new SockJS('/ws');
     const client = Stomp.over(socket);
     client.debug = null; 
     const token = localStorage.getItem('token');

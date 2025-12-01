@@ -72,16 +72,14 @@ public class SecurityConfig {
         CorsConfiguration configuration = new CorsConfiguration();
 
         // Cho phép Frontend chạy ở cổng 5173 (React/Vite) gọi vào
-        configuration.setAllowedOrigins(List.of("http://localhost:5173"));
+        configuration.setAllowedOriginPatterns(List.of("*"));
+        configuration.setAllowCredentials(true);
 
         // Cho phép các phương thức HTTP này
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
 
         // Cho phép mọi loại Header (quan trọng để gửi Authorization: Bearer ...)
         configuration.setAllowedHeaders(List.of("*"));
-
-        // Cho phép gửi kèm credentials (nếu sau này cần cookie)
-        configuration.setAllowCredentials(true);
 
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         // Áp dụng cấu hình này cho mọi đường dẫn trong API

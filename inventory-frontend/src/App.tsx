@@ -6,6 +6,7 @@ import ForgotPassword from './pages/ForgotPassword';
 import MainLayout from './components/MainLayout';
 import Groups from './pages/Groups';       // Trang danh sách nhóm
 import GroupDetail from './pages/GroupDetail'; // Trang chi tiết nhóm (Chat + Task)
+import AdminDashboard from './pages/AdminDashboard'; 
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
           {/* Route cho chức năng Nhóm */}
           <Route path="/groups" element={<Groups />} />
           <Route path="/groups/:id" element={<GroupDetail />} />
+          <Route path="/admin" element={<AdminDashboard />} />
         </Route>
 
         {/* Xử lý trang 404 nếu nhập sai link (Tùy chọn) */}
