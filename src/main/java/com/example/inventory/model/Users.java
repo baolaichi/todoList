@@ -31,7 +31,7 @@ public class Users {
     private String email;
 
     @Enumerated(EnumType.STRING)
-    private Role role = Role.VIEWER;
+    private Role role = Role.ROLE_CUSTOMER;
 
     @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @JsonIgnore

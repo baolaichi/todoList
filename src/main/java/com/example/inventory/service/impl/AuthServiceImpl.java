@@ -45,10 +45,13 @@ public class AuthServiceImpl implements AuthService{
         if(userRepository.existsByUsername(request.getUsername())){
             throw new RuntimeException("Username already exists");
         }
-
-        request.setPassword(passwordEncoder.encode(request.getPassword()));
-        userRepository.save(request);
-
+        try {
+            request.setPassword(passwordEncoder.encode(request.getPassword()));
+            userRepository.saveAndFlush(request);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return "Error: " + e.getMessage() + (e.getCause() != null ? " | Cause: " + e.getCause().getMessage() : "");
+        }
         return "Register success";
     }
 
